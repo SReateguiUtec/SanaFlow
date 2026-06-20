@@ -8,6 +8,10 @@ plugins:
 custom:
   pythonRequirements:
     dockerizePip: false # Ajustar a true si hay problemas compilando PyJWT en CI/CD
+  
+  # URL base del WebSocket API para que triage_worker pueda hacer push
+  wsEndpoint:
+    Fn::Sub: "https://${WebsocketsApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}"
     
 provider:
   name: aws
@@ -20,28 +24,47 @@ provider:
     JWT_SECRET: ${env:JWT_SECRET, 'SanaFlowSuperSecretKey2026!'}
     USERS_TABLE: ${self:service}-users-${sls:stage}
     RESULTS_TABLE: ${self:service}-results-${sls:stage}
+    CONNECTIONS_TABLE: ${self:service}-connections-${sls:stage}
+    QUEUE_URL:
+      Ref: TriageQueue
+    WS_ENDPOINT: ${self:custom.wsEndpoint}
+
   iam:
     role:
       statements:
         - Effect: "Allow"
           Action:
             - "sqs:SendMessage"
+            - "sqs:SendMessageBatch"
             - "sqs:ReceiveMessage"
             - "sqs:DeleteMessage"
             - "sqs:GetQueueAttributes"
           Resource: !GetAtt TriageQueue.Arn
+
+
         - Effect: "Allow"
           Action:
             - "dynamodb:PutItem"
             - "dynamodb:GetItem"
+            - "dynamodb:DeleteItem"
             - "dynamodb:Query"
             - "dynamodb:Scan"
+
           Resource: 
             - !GetAtt UsersTable.Arn
             - !GetAtt ResultsTable.Arn
+            - !GetAtt ConnectionsTable.Arn
+
+        # WebSocket: permiso para hacer push a conexiones activas
+        - Effect: "Allow"
+          Action:
+            - "execute-api:ManageConnections"
+          Resource:
+            Fn::Sub: "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/${sls:stage}/POST/@connections/*"
+
 
 functions:
-  # 1. Autenticación: Registro
+  # ─── Auth ────────────────────────────────────────────────────────────────
   registerUser:
     handler: src/auth.register
     events:
@@ -49,7 +72,6 @@ functions:
           path: /auth/register
           method: post
 
-  # 2. Autenticación: Login
   loginUser:
     handler: src/auth.login
     events:
@@ -57,26 +79,71 @@ functions:
           path: /auth/login
           method: post
 
-  # 3. Worker de Triaje (Consume SQS)
+  # ─── Upload CSV → SQS ────────────────────────────────────────────────────
+  uploadNotes:
+    handler: src/upload_handler.handler
+    events:
+      - httpApi:
+          path: /upload
+          method: post
+
+  # ─── Consultar resultados ─────────────────────────────────────────────────
+  getResults:
+    handler: src/get_results.handler
+    events:
+      - httpApi:
+          path: /results
+          method: get
+
+  # ─── Worker de Triaje (consume SQS) ──────────────────────────────────────
   processTriage:
     handler: src/triage_worker.handler
     timeout: 30
     events:
       - sqs:
           arn: !GetAtt TriageQueue.Arn
-          batchSize: 5 # Procesa 5 notas simultáneas
+          batchSize: 5
+
+  # ─── WebSocket handlers ───────────────────────────────────────────────────
+  wsConnect:
+    handler: src/ws_handler.connect
+    events:
+      - websocket:
+          route: $connect
+
+  wsDisconnect:
+    handler: src/ws_handler.disconnect
+    events:
+      - websocket:
+          route: $disconnect
+
+  wsDefault:
+    handler: src/ws_handler.default
+    events:
+      - websocket:
+          route: $default
 
 resources:
   Resources:
-    # --- Colas SQS ---
+    # ─── Cola SQS ──────────────────────────────────────────────────────────
     TriageQueue:
       Type: "AWS::SQS::Queue"
       Properties:
         QueueName: "${self:service}-triage-queue-${sls:stage}"
-        VisibilityTimeout: 60 # Tiempo extra para reintentos por Rate Limit
+        VisibilityTimeout: 60
         MessageRetentionPeriod: 86400
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt TriageDLQ.Arn
+          maxReceiveCount: 3      # Después de 3 fallos va a la DLQ
 
-    # --- Bases de Datos ---
+    # Dead Letter Queue — captura notas que fallaron 3 veces
+    TriageDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:service}-triage-dlq-${sls:stage}"
+        MessageRetentionPeriod: 1209600  # 14 días
+
+    # ─── Tablas DynamoDB ───────────────────────────────────────────────────
     UsersTable:
       Type: "AWS::DynamoDB::Table"
       Properties:
@@ -100,3 +167,19 @@ resources:
           - AttributeName: id
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
+
+    ConnectionsTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: ${self:provider.environment.CONNECTIONS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: connectionId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: connectionId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        # TTL opcional para limpiar conexiones viejas automáticamente
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
