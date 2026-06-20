@@ -17,6 +17,8 @@ provider:
   name: aws
   runtime: python3.11
   region: us-east-1
+  httpApi:
+    cors: true
   environment:
     GROQ_API_KEY: ${env:GROQ_API_KEY, 'tu_api_key_aqui'}
     GEMINI_API_KEY: ${env:GEMINI_API_KEY, 'tu_gemini_key'}

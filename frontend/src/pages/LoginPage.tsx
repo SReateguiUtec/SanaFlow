@@ -1,20 +1,35 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { api, setToken } from '../lib/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPass, setShowPass] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Auth logic goes here
+    setError('');
+    setLoading(true);
+    try {
+      const data = await api.auth.login(form);
+      if (data.token) {
+        setToken(data.token);
+        navigate('/dashboard');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,6 +66,13 @@ const LoginPage = () => {
               Accede a tu panel de triaje clínico
             </p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 border border-red-400/20 bg-red-400/10 text-red-400 text-sm font-mono-custom tracking-[0.05em] animate-fade-up">
+              {error}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -126,9 +148,10 @@ const LoginPage = () => {
             <div className="pt-2 animate-fade-up" style={{ animationDelay: '280ms' }}>
               <button
                 type="submit"
-                className="w-full py-4 bg-amber-400 text-black font-mono-custom text-[11px] uppercase tracking-[0.25em] hover:bg-amber-300 active:bg-amber-500 transition-colors duration-200 relative group overflow-hidden"
+                disabled={loading}
+                className="w-full py-4 bg-amber-400 text-black font-mono-custom text-[11px] uppercase tracking-[0.25em] hover:bg-amber-300 active:bg-amber-500 disabled:opacity-50 transition-colors duration-200 relative group overflow-hidden"
               >
-                <span className="relative z-10">Ingresar →</span>
+                <span className="relative z-10">{loading ? 'Ingresando...' : 'Ingresar →'}</span>
               </button>
             </div>
           </form>

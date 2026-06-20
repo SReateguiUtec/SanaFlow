@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { api } from '../../lib/api';
 
 const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
@@ -17,29 +18,71 @@ const UploadView = () => {
   const [pipelineStep, setPipelineStep] = useState(-1);
   const [done, setDone]               = useState(false);
   const [fileName, setFileName]       = useState('');
+  const [error, setError]             = useState('');
 
-  const runPipeline = (name: string) => {
-    setFileName(name);
+  const processFile = async (file: File) => {
+    setFileName(file.name);
     setIsUploading(true);
     setDone(false);
     setPipelineStep(0);
-    pipelineStages.forEach((_, i) => {
-      setTimeout(() => setPipelineStep(i), i * 600);
-    });
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const text = await file.text();
+      let notas: string[] = [];
+
+      if (file.name.endsWith('.json')) {
+        const data = JSON.parse(text);
+        notas = data.notas || data.notes || [];
+      } else {
+        // Simple CSV parsing
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length > 0 && lines[0].toLowerCase().includes('nota_clinica')) {
+          lines.shift();
+        }
+        // Remove quotes if present
+        notas = lines.map(l => l.replace(/^["']|["']$/g, ''));
+      }
+
+      if (!notas.length) {
+        throw new Error('No se encontraron notas en el archivo');
+      }
+
+      setPipelineStep(2); // SQS Queue step
+      await api.upload.sendNotes(notas);
+
       setIsUploading(false);
       setDone(true);
+      setPipelineStep(pipelineStages.length);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al procesar el archivo');
+      setIsUploading(false);
       setPipelineStep(-1);
-    }, pipelineStages.length * 600 + 200);
+    }
   };
 
-  const handleClick = () => { if (!isUploading) runPipeline('notas_lote_01.csv'); };
-  const handleDrop  = (e: React.DragEvent) => {
-    e.preventDefault(); setIsDragging(false);
-    if (e.dataTransfer.files?.length) runPipeline(e.dataTransfer.files[0].name);
+  const handleClick = () => {
+    if (isUploading) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.json';
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (file) processFile(file);
+    };
+    input.click();
   };
 
-  const reset = () => { setDone(false); setFileName(''); setPipelineStep(-1); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!isUploading && e.dataTransfer.files?.length) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const reset = () => { setDone(false); setFileName(''); setPipelineStep(-1); setError(''); };
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -96,12 +139,14 @@ const UploadView = () => {
                 <div className="text-center">
                   <p style={serif} className="text-xl text-white mb-1">Arrastra tu CSV aquí</p>
                   <p style={mono} className="text-[9px] uppercase tracking-[0.2em] text-white/22">
-                    o haz click para simular · .csv / .json
+                    o haz click para seleccionar archivo · .csv / .json
                   </p>
                 </div>
-                <p style={mono} className="text-[8px] text-white/12 uppercase tracking-[0.15em]">
-                  Simulación local · Sin conexión a backend
-                </p>
+                {error && (
+                  <p className="mt-2 text-sm text-red-400 max-w-sm text-center bg-red-400/10 px-3 py-1.5 border border-red-400/20">
+                    {error}
+                  </p>
+                )}
               </>
             )}
           </div>

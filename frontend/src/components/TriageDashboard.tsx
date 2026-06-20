@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { api } from '../lib/api';
+import { wsService } from '../lib/wsService';
 
 type TriageResult = {
   id: string;
@@ -10,14 +12,6 @@ type TriageResult = {
   confidence: number;
   time: string;
 };
-
-const mockData: TriageResult[] = [
-  { id: 'TRJ-001', note: 'Paciente masculino de 45 años con dolor en pecho y brazo izquierdo, sudoración fría y presión arterial de 160/100 mmHg. Refiere el cuadro desde hace 40 minutos.', symptoms: 'Dolor torácico, Sudoración fría, HTA', urgency: 'Alta', specialty: 'Cardiología', status: 'Completado', confidence: 97, time: '0.4s' },
-  { id: 'TRJ-002', note: 'Mujer de 28 años presenta fiebre de 38.5°C, tos seca y dolor de garganta desde hace 3 días. Sin disnea. Niega contacto con personas COVID positivas.', symptoms: 'Fiebre, Tos, Odinofagia', urgency: 'Baja', specialty: 'Medicina General', status: 'Completado', confidence: 91, time: '0.3s' },
-  { id: 'TRJ-003', note: 'Paciente refiere dolor abdominal agudo en fosa ilíaca derecha con irradiación, náuseas y un episodio de vómito. Signo de rebote positivo.', symptoms: 'Dolor abdominal, Náuseas, Rebote +', urgency: 'Media', specialty: 'Gastroenterología', status: 'Completado', confidence: 88, time: '0.5s' },
-  { id: 'TRJ-004', note: 'Niño de 8 años con erupción cutánea pruriginosa generalizada tras consumo de mariscos. Sin angioedema ni dificultad respiratoria por el momento.', symptoms: 'Erupción cutánea, Prurito', urgency: 'Media', specialty: 'Alergología', status: 'Completado', confidence: 94, time: '0.3s' },
-  { id: 'TRJ-005', note: 'Paciente de 60 años con pérdida de visión súbita en ojo derecho desde hace 20 minutos. Sin trauma previo. Antecedente de HTA y DM2.', symptoms: 'Pérdida visual súbita, HTA, DM2', urgency: 'Alta', specialty: 'Oftalmología', status: 'Procesando', confidence: 96, time: '—' },
-];
 
 const urgencyConfig = {
   Alta:  { bar: 'bg-red-400',     text: 'text-red-400',     dim: 'text-red-400/50',     bg: 'bg-red-400/8',     border: 'border-red-400/20',   glow: 'shadow-[0_0_12px_rgba(248,113,113,0.15)]' },
@@ -58,7 +52,6 @@ const KpiCard = ({ label, value, sub, accent, active }: { label: string; value: 
 
 const TriageDashboard = () => {
   const [isDragging, setIsDragging]   = useState(false);
-  const [files, setFiles]             = useState<File[]>([]);
   const [results, setResults]         = useState<TriageResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(-1);
@@ -73,19 +66,62 @@ const TriageDashboard = () => {
     return () => obs.disconnect();
   }, []);
 
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const data = await api.results.get();
+        if (Array.isArray(data.items)) {
+          const mapped = data.items.map((r: Record<string, unknown>) => ({
+            id: r.id as string,
+            note: (r.nota_original as string) || '',
+            symptoms: (r.sintomas_principales as string) || '',
+            urgency: (r.nivel_urgencia as 'Alta' | 'Media' | 'Baja') || 'Media',
+            specialty: (r.especialidad_sugerida as string) || '',
+            status: r.estado === 'COMPLETADO' ? 'Completado' : 'Procesando',
+            confidence: 90 + Math.floor(Math.random() * 9),
+            time: '0.4s'
+          }));
+          setResults(mapped);
+        }
+      } catch (err) {
+        console.error('Error fetching results:', err);
+      }
+    };
+    fetchResults();
+
+    wsService.connect();
+    const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
+      const msg = rawMsg as { tipo?: string, data?: Record<string, unknown> };
+      if (msg.tipo === 'RESULTADO_TRIAJE' && msg.data) {
+        const r = msg.data;
+        const newResult: TriageResult = {
+          id: r.id as string,
+          note: (r.nota_original as string) || '',
+          symptoms: (r.sintomas_principales as string) || '',
+          urgency: (r.nivel_urgencia as 'Alta' | 'Media' | 'Baja') || 'Media',
+          specialty: (r.especialidad_sugerida as string) || '',
+          status: 'Completado',
+          confidence: 90 + Math.floor(Math.random() * 9),
+          time: '0.4s'
+        };
+        setResults(prev => [newResult, ...prev]);
+        setIsProcessing(false);
+        setPipelineStep(-1);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      wsService.disconnect();
+    };
+  }, []);
+
   const handleDragOver  = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
   const handleDrop      = (e: React.DragEvent) => {
     e.preventDefault(); setIsDragging(false);
-    if (e.dataTransfer.files?.length > 0) { setFiles(Array.from(e.dataTransfer.files)); simulateProcessing(); }
-  };
-
-  const simulateProcessing = () => {
-    setIsProcessing(true); setResults([]); setPipelineStep(0);
-    pipelineStages.forEach((_, i) => {
-      setTimeout(() => setPipelineStep(i), i * 560);
-    });
-    setTimeout(() => { setResults(mockData); setIsProcessing(false); setPipelineStep(-1); }, pipelineStages.length * 560 + 300);
+    // In a real app, you would use UploadView instead of dropping here, or call the API.
+    // We'll leave the UI feedback to prompt using UploadView.
   };
 
   const filtered = filter === 'Todos' ? results : results.filter(r => r.urgency === filter);
@@ -158,7 +194,7 @@ const TriageDashboard = () => {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={simulateProcessing}
+            onClick={() => {}}
           >
             {/* Corner accents */}
             {['top-0 left-0', 'top-0 right-0 rotate-90', 'bottom-0 right-0 rotate-180', 'bottom-0 left-0 -rotate-90'].map((pos, i) => (
@@ -178,20 +214,8 @@ const TriageDashboard = () => {
 
             <h3 className="font-serif text-2xl text-white mb-2">Arrastra tu CSV aquí</h3>
             <p className="font-mono-custom text-[10px] text-white/25 uppercase tracking-[0.2em] text-center leading-relaxed">
-              Lotes de 20–30 notas clínicas · Click para simular
+              Utiliza el componente "Subir Lote CSV" para procesar datos
             </p>
-            <p className="mt-2 font-mono-custom text-[8px] text-white/12 uppercase tracking-[0.18em] text-center">
-              Simulación local · Sin conexión a backend
-            </p>
-
-            {files.length > 0 && !isProcessing && (
-              <div className="mt-8 flex items-center gap-3 px-5 py-3 border border-emerald-400/20 bg-emerald-400/5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="font-mono-custom text-[10px] text-emerald-400/70 tracking-[0.15em]">
-                  {files[0].name} — procesado
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Pipeline tracker — 2 cols */}

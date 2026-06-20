@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { api, setToken } from '../lib/api';
 
 const roles = [
   { id: 'medico', label: 'Médico', desc: 'Acceso a resultados de triaje y panel clínico' },
@@ -21,14 +22,28 @@ const RegisterPage = () => {
   const [showPass, setShowPass] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Auth logic goes here
+    setError('');
+    setLoading(true);
+    try {
+      const data = await api.auth.register(form);
+      if (data.token) {
+        setToken(data.token);
+        navigate('/dashboard');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al registrar cuenta');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const passwordStrength = (() => {
@@ -101,6 +116,13 @@ const RegisterPage = () => {
               </div>
             ))}
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 border border-red-400/20 bg-red-400/10 text-red-400 text-sm font-mono-custom tracking-[0.05em] animate-fade-up">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
 
@@ -320,10 +342,10 @@ const RegisterPage = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={!form.role}
+                    disabled={!form.role || loading}
                     className="flex-1 py-4 bg-amber-400 text-black font-mono-custom text-[11px] uppercase tracking-[0.25em] hover:bg-amber-300 active:bg-amber-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    Crear cuenta →
+                    {loading ? 'Creando...' : 'Crear cuenta →'}
                   </button>
                 </div>
               </div>
