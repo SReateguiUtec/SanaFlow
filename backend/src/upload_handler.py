@@ -16,7 +16,7 @@ def create_response(status_code: int, body: dict):
         "statusCode": status_code,
         "headers": {
             "Access-Control-Allow-Origin":      "*",
-            "Access-Control-Allow-Credentials": True,
+            "Access-Control-Allow-Credentials": "true",
             "Content-Type":                     "application/json"
         },
         "body": json.dumps(body)

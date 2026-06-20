@@ -26,7 +26,7 @@ def create_response(status_code: int, body: dict):
         "statusCode": status_code,
         "headers": {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": True,
+            "Access-Control-Allow-Credentials": "true",
             "Content-Type": "application/json"
         },
         "body": json.dumps(body)
@@ -35,10 +35,10 @@ def create_response(status_code: int, body: dict):
 def register(event, context):
     """Endpoint de registro de usuario."""
     try:
-        body = json.loads(event.get('body', '{}'))
+        body = json.loads(event.get('body') or '{}')
         email = body.get('email')
         password = body.get('password')
-        name = body.get('name', 'Usuario Clínico')
+        name = body.get('nombre') or body.get('name', 'Usuario Clínico')
 
         if not email or not password:
             return create_response(400, {"message": "Email y contraseña son obligatorios."})
@@ -68,7 +68,7 @@ def register(event, context):
 def login(event, context):
     """Endpoint de login de usuario que devuelve JWT."""
     try:
-        body = json.loads(event.get('body', '{}'))
+        body = json.loads(event.get('body') or '{}')
         email = body.get('email')
         password = body.get('password')
 

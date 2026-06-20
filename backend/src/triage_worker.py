@@ -5,14 +5,9 @@ import time
 import boto3
 import requests
 from groq import Groq
-import google.generativeai as genai
 
 # Inicialización de clientes
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-
-gemini_key = os.environ.get("GEMINI_API_KEY")
-if gemini_key and gemini_key != 'tu_gemini_key':
-    genai.configure(api_key=gemini_key)
 
 openrouter_key = os.environ.get("OPENROUTER_API_KEY")
 
@@ -36,6 +31,11 @@ def call_groq(nota_clinica):
     return json.loads(chat_completion.choices[0].message.content)
 
 def call_gemini(nota_clinica):
+    import google.generativeai as genai
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if not gemini_key or gemini_key == 'tu_gemini_key':
+        raise Exception("GEMINI_API_KEY no configurada")
+    genai.configure(api_key=gemini_key)
     model = genai.GenerativeModel('gemini-1.5-flash')
     prompt = f"Eres un asistente de triaje experto. Lee la nota clínica y devuelve estrictamente un JSON con las claves: 'sintomas_principales' (texto breve), 'nivel_urgencia' (Alta/Media/Baja), y 'especialidad_sugerida' (Especialidad médica). Nota: {nota_clinica}"
     response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
