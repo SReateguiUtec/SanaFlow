@@ -6,6 +6,13 @@ from boto3.dynamodb.conditions import Key
 dynamodb      = boto3.resource('dynamodb', region_name='us-east-1')
 results_table = dynamodb.Table(os.environ.get("RESULTS_TABLE", "sanaflow-backend-results-dev"))
 
+import decimal
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super(DecimalEncoder, self).default(obj)
 
 def create_response(status_code: int, body: dict):
     return {
@@ -15,9 +22,8 @@ def create_response(status_code: int, body: dict):
             "Access-Control-Allow-Credentials": "true",
             "Content-Type":                     "application/json"
         },
-        "body": json.dumps(body)
+        "body": json.dumps(body, cls=DecimalEncoder)
     }
-
 
 def handler(event, context):
     """
