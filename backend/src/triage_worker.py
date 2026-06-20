@@ -24,29 +24,20 @@ def call_groq(nota_clinica):
             {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales', 'nivel_urgencia' y 'especialidad_sugerida'."},
             {"role": "user", "content": nota_clinica}
         ],
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         temperature=0.1,
         response_format={"type": "json_object"}
     )
     return json.loads(chat_completion.choices[0].message.content)
 
-def call_gemini(nota_clinica):
-    import google.generativeai as genai
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    if not gemini_key or gemini_key == 'tu_gemini_key':
-        raise Exception("GEMINI_API_KEY no configurada")
-    genai.configure(api_key=gemini_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    prompt = f"Eres un asistente de triaje experto. Lee la nota clínica y devuelve estrictamente un JSON con las claves: 'sintomas_principales' (texto breve), 'nivel_urgencia' (Alta/Media/Baja), y 'especialidad_sugerida' (Especialidad médica). Nota: {nota_clinica}"
-    response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
-    return json.loads(response.text)
+
 
 def call_openrouter(nota_clinica):
     response = requests.post(
         url="https://openrouter.ai/api/v1/chat/completions",
         headers={"Authorization": f"Bearer {openrouter_key}"},
         json={
-            "model": "meta-llama/llama-3-8b-instruct:free",
+            "model": "openrouter/auto",
             "messages": [
                 {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales', 'nivel_urgencia' y 'especialidad_sugerida'."},
                 {"role": "user", "content": nota_clinica}
@@ -129,21 +120,15 @@ def handler(event, context):
                 ia_response = call_groq(nota_clinica)
             except Exception as e:
                 print(f"[FALLO GROQ] Error: {e}")
-                # 2. Respaldo: GEMINI
+                # 2. Respaldo Final: OPENROUTER
                 try:
-                    print("Activando respaldo: Gemini...")
-                    ia_response = call_gemini(nota_clinica)
+                    print("Activando respaldo final: OpenRouter...")
+                    ia_response = call_openrouter(nota_clinica)
                 except Exception as e2:
-                    print(f"[FALLO GEMINI] Error: {e2}")
-                    # 3. Respaldo Final: OPENROUTER
-                    try:
-                        print("Activando respaldo final: OpenRouter...")
-                        ia_response = call_openrouter(nota_clinica)
-                    except Exception as e3:
-                        print(f"[FALLO OPENROUTER] Error: {e3}")
-                        # 4. Todos los LLMs fallaron (Rate Limits masivos o Caída global) -> Devolver a SQS
-                        print("[ALERTA RESILIENCIA] Todos los proveedores fallaron. Devolviendo mensaje a la cola SQS...")
-                        raise Exception("Fallo masivo en proveedores LLM. Reintentando por SQS en 60s.")
+                    print(f"[FALLO OPENROUTER] Error: {e2}")
+                    # 3. Todos los LLMs fallaron (Rate Limits masivos o Caída global) -> Devolver a SQS
+                    print("[ALERTA RESILIENCIA] Todos los proveedores fallaron. Devolviendo mensaje a la cola SQS...")
+                    raise Exception("Fallo masivo en proveedores LLM. Reintentando por SQS en 60s.")
 
             # --- GUARDADO EN DYNAMODB ---
             item_id = str(uuid.uuid4())
