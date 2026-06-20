@@ -24,6 +24,7 @@ const RegisterPage = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -325,8 +326,23 @@ const RegisterPage = () => {
 
                 {/* Terms */}
                 <div className="animate-fade-up flex items-start gap-3 pt-1" style={{ animationDelay: '240ms' }}>
-                  <div className="w-4 h-4 border border-white/15 bg-white/[0.02] mt-0.5 flex-shrink-0" />
-                  <p className="font-mono-custom text-[9px] text-white/25 uppercase tracking-[0.12em] leading-relaxed">
+                  <button
+                    type="button"
+                    onClick={() => setAcceptedTerms(!acceptedTerms)}
+                    className={`w-4 h-4 border mt-0.5 flex-shrink-0 flex items-center justify-center transition-all duration-200 ${
+                      acceptedTerms ? 'border-amber-400/60 bg-amber-400/15' : 'border-white/15 bg-white/[0.02] hover:border-white/30'
+                    }`}
+                  >
+                    {acceptedTerms && (
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-amber-400">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                  <p
+                    onClick={() => setAcceptedTerms(!acceptedTerms)}
+                    className="font-mono-custom text-[9px] uppercase tracking-[0.12em] leading-relaxed cursor-pointer select-none transition-colors duration-200 ${acceptedTerms ? 'text-white/40' : 'text-white/25 hover:text-white/35'}"
+                  >
                     Acepto los términos de uso y la política de privacidad de datos clínicos de SanaFlow.
                   </p>
                 </div>
@@ -342,7 +358,7 @@ const RegisterPage = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={!form.role || loading}
+                    disabled={!form.role || !acceptedTerms || loading}
                     className="flex-1 py-4 bg-amber-400 text-black font-mono-custom text-[11px] uppercase tracking-[0.25em] hover:bg-amber-300 active:bg-amber-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Creando...' : 'Crear cuenta →'}

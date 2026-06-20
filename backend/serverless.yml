@@ -17,6 +17,7 @@ provider:
   name: aws
   runtime: python3.10
   region: us-east-1
+  role: arn:aws:iam::931952830916:role/LabRole
   httpApi:
     cors: true
   environment:
@@ -30,39 +31,6 @@ provider:
     QUEUE_URL:
       Ref: TriageQueue
     WS_ENDPOINT: ${self:custom.wsEndpoint}
-
-  iam:
-    role:
-      statements:
-        - Effect: "Allow"
-          Action:
-            - "sqs:SendMessage"
-            - "sqs:SendMessageBatch"
-            - "sqs:ReceiveMessage"
-            - "sqs:DeleteMessage"
-            - "sqs:GetQueueAttributes"
-          Resource: !GetAtt TriageQueue.Arn
-
-
-        - Effect: "Allow"
-          Action:
-            - "dynamodb:PutItem"
-            - "dynamodb:GetItem"
-            - "dynamodb:DeleteItem"
-            - "dynamodb:Query"
-            - "dynamodb:Scan"
-
-          Resource: 
-            - !GetAtt UsersTable.Arn
-            - !GetAtt ResultsTable.Arn
-            - !GetAtt ConnectionsTable.Arn
-
-        # WebSocket: permiso para hacer push a conexiones activas
-        - Effect: "Allow"
-          Action:
-            - "execute-api:ManageConnections"
-          Resource:
-            Fn::Sub: "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/${sls:stage}/POST/@connections/*"
 
 
 functions:
