@@ -1,0 +1,293 @@
+import { useState, useEffect } from 'react';
+
+const mono = { fontFamily: "'IBM Plex Mono', monospace" };
+const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
+
+type TriageResult = {
+  id: string;
+  note: string;
+  symptoms: string;
+  urgency: 'Alta' | 'Media' | 'Baja';
+  specialty: string;
+  status: 'Procesando' | 'Completado';
+  confidence: number;
+  date: string;
+  time: string;
+};
+
+const mockData: TriageResult[] = [
+  { id: 'TRJ-042', note: 'Paciente masculino de 45 años con dolor en pecho y brazo izquierdo, sudoración fría y presión arterial de 160/100 mmHg.', symptoms: 'Dolor torácico, Sudoración', urgency: 'Alta', specialty: 'Cardiología', status: 'Completado', confidence: 97, date: 'Jun 20', time: '11:42' },
+  { id: 'TRJ-041', note: 'Mujer de 28 años presenta fiebre de 38.5°C, tos seca y dolor de garganta desde hace 3 días. Sin disnea.', symptoms: 'Fiebre, Tos, Odinofagia', urgency: 'Baja', specialty: 'Medicina General', status: 'Completado', confidence: 91, date: 'Jun 20', time: '11:38' },
+  { id: 'TRJ-040', note: 'Paciente refiere dolor abdominal agudo en fosa ilíaca derecha con irradiación, náuseas y vómito. Signo de rebote positivo.', symptoms: 'Dolor abdominal, Náuseas, Rebote +', urgency: 'Media', specialty: 'Gastroenterología', status: 'Completado', confidence: 88, date: 'Jun 20', time: '10:55' },
+  { id: 'TRJ-039', note: 'Niño de 8 años con erupción cutánea pruriginosa generalizada tras consumo de mariscos. Sin angioedema.', symptoms: 'Erupción cutánea, Prurito', urgency: 'Media', specialty: 'Alergología', status: 'Completado', confidence: 94, date: 'Jun 20', time: '10:21' },
+  { id: 'TRJ-038', note: 'Paciente de 60 años con pérdida de visión súbita en ojo derecho desde hace 20 minutos. Antecedente de HTA y DM2.', symptoms: 'Pérdida visual súbita', urgency: 'Alta', specialty: 'Oftalmología', status: 'Completado', confidence: 96, date: 'Jun 19', time: '18:04' },
+  { id: 'TRJ-037', note: 'Adolescente de 17 años con cefalea pulsátil intensa, fotofobia y náuseas. Sin fiebre. Episodio previo similar hace 2 meses.', symptoms: 'Cefalea, Fotofobia, Náuseas', urgency: 'Media', specialty: 'Neurología', status: 'Completado', confidence: 89, date: 'Jun 19', time: '15:30' },
+  { id: 'TRJ-036', note: 'Mujer de 55 años con disnea progresiva al esfuerzo y edema bilateral de miembros inferiores. Antecedente de cardiopatía.', symptoms: 'Disnea, Edema bilateral', urgency: 'Alta', specialty: 'Cardiología', status: 'Procesando', confidence: 93, date: 'Jun 19', time: '09:12' },
+];
+
+const uCfg = {
+  Alta:  { dot: 'bg-red-400',     text: 'text-red-400',     badge: 'text-red-400 border-red-400/20 bg-red-400/6'          },
+  Media: { dot: 'bg-amber-400',   text: 'text-amber-400',   badge: 'text-amber-400 border-amber-400/20 bg-amber-400/6'    },
+  Baja:  { dot: 'bg-emerald-400', text: 'text-emerald-400', badge: 'text-emerald-400 border-emerald-400/20 bg-emerald-400/6' },
+};
+
+const HistoryView = () => {
+  const [results, setResults]     = useState<TriageResult[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState<'Todos' | 'Alta' | 'Media' | 'Baja'>('Todos');
+  const [search, setSearch]       = useState('');
+  const [expanded, setExpanded]   = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => { setResults(mockData); setLoading(false); }, 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const filtered = results
+    .filter(r => filter === 'Todos' || r.urgency === filter)
+    .filter(r => !search || r.symptoms.toLowerCase().includes(search.toLowerCase()) || r.specialty.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase()));
+
+  const alta  = results.filter(r => r.urgency === 'Alta').length;
+  const media = results.filter(r => r.urgency === 'Media').length;
+  const baja  = results.filter(r => r.urgency === 'Baja').length;
+
+  return (
+    <div className="space-y-6">
+
+      {/* Header */}
+      <div>
+        <p style={mono} className="text-[9px] uppercase tracking-[0.3em] text-white/22 mb-3">/ Historial</p>
+        <h1 style={serif} className="text-4xl text-white leading-tight">Historial de Triaje</h1>
+        <p className="mt-2 text-sm text-white/35 font-light">Resultados extraídos de DynamoDB · Actualización en tiempo real en producción.</p>
+      </div>
+
+      {/* Summary mini-cards */}
+      {!loading && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Alta', count: alta, color: 'bg-red-400/50', text: 'text-red-400' },
+            { label: 'Media', count: media, color: 'bg-amber-400/50', text: 'text-amber-400' },
+            { label: 'Baja', count: baja, color: 'bg-emerald-400/40', text: 'text-emerald-400' },
+          ].map(({ label, count, color, text }) => (
+            <div
+              key={label}
+              onClick={() => setFilter(filter === label as typeof filter ? 'Todos' : label as typeof filter)}
+              className={`border border-white/6 bg-[#070606] p-4 cursor-pointer hover:border-white/12 transition-colors ${filter === label ? 'border-white/15' : ''}`}
+            >
+              <div className={`h-px w-full ${color} mb-4`} />
+              <span style={serif} className={`text-3xl ${text}`}>{count}</span>
+              <p style={mono} className="text-[8px] uppercase tracking-[0.2em] text-white/22 mt-1">{label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Search + filter bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Search */}
+        <div className="flex-1 flex items-center gap-3 border border-white/8 bg-white/[0.02] px-4 py-2.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/20 flex-shrink-0">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por ID, síntoma o especialidad…"
+            className="flex-1 bg-transparent text-sm text-white placeholder-white/15 outline-none"
+            style={mono}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="text-white/20 hover:text-white/50 transition-colors">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Filter pills */}
+        <div className="flex items-center gap-1.5">
+          {(['Todos', 'Alta', 'Media', 'Baja'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              style={mono}
+              className={`text-[9px] uppercase tracking-[0.18em] px-3 py-2 border transition-all duration-200 ${
+                filter === f
+                  ? f === 'Alta'  ? 'border-red-400/40 bg-red-400/8 text-red-400'
+                  : f === 'Media' ? 'border-amber-400/40 bg-amber-400/8 text-amber-400'
+                  : f === 'Baja'  ? 'border-emerald-400/40 bg-emerald-400/8 text-emerald-400'
+                  : 'border-white/18 bg-white/4 text-white'
+                  : 'border-white/6 text-white/25 hover:border-white/14 hover:text-white/50'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="border border-white/6 overflow-hidden">
+
+        {/* Column headers */}
+        <div className="hidden md:grid border-b border-white/6 bg-white/[0.015]"
+          style={{ gridTemplateColumns: '96px 1fr 150px 80px 90px 90px 44px' }}>
+          {['ID', 'Síntomas', 'Especialidad', 'Urgencia', 'Confianza', 'Fecha', ''].map((h) => (
+            <div key={h} className="px-4 py-3">
+              <span style={mono} className="text-[7px] uppercase tracking-[0.3em] text-white/18">{h}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="divide-y divide-white/4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="hidden md:grid px-4 py-4" style={{ gridTemplateColumns: '96px 1fr 150px 80px 90px 90px 44px' }}>
+                {[80, 180, 100, 55, 50, 60, 16].map((w, j) => (
+                  <div key={j} className="flex items-center">
+                    <div className="h-2 bg-white/4 animate-pulse rounded-sm" style={{ width: w, animationDelay: `${i * 0.08 + j * 0.04}s` }} />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && filtered.length === 0 && (
+          <div className="py-20 flex flex-col items-center gap-4">
+            <div className="w-10 h-10 border border-white/6 flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-white/15">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
+            <p style={mono} className="text-[9px] text-white/15 uppercase tracking-[0.25em]">Sin resultados para esta búsqueda</p>
+          </div>
+        )}
+
+        {/* Rows */}
+        {!loading && filtered.map((r, i) => {
+          const cfg = uCfg[r.urgency];
+          const isOpen = expanded === r.id;
+          return (
+            <div
+              key={r.id}
+              className={`border-b border-white/4 last:border-0 transition-colors duration-200 ${isOpen ? 'bg-white/[0.02]' : 'hover:bg-white/[0.015]'}`}
+              style={{ animation: `fade-up 0.35s ease-out ${i * 0.06}s both` }}
+            >
+              {/* Desktop row */}
+              <div
+                className="hidden md:grid cursor-pointer"
+                style={{ gridTemplateColumns: '96px 1fr 150px 80px 90px 90px 44px' }}
+                onClick={() => setExpanded(isOpen ? null : r.id)}
+              >
+                <div className="px-4 py-4 flex items-center">
+                  <span style={mono} className={`text-[10px] ${cfg.text} opacity-70`}>{r.id}</span>
+                </div>
+                <div className="px-4 py-4 flex items-center gap-2.5">
+                  <div className={`w-px h-5 flex-shrink-0 ${cfg.dot}`} />
+                  <span className="text-sm text-white/55 truncate">{r.symptoms}</span>
+                </div>
+                <div className="px-4 py-4 flex items-center">
+                  <span className="text-sm text-white/35">{r.specialty}</span>
+                </div>
+                <div className="px-4 py-4 flex items-center">
+                  <span style={mono} className={`text-[9px] uppercase tracking-[0.12em] px-2 py-1 border ${cfg.badge}`}>
+                    {r.urgency}
+                  </span>
+                </div>
+                <div className="px-4 py-4 flex flex-col justify-center gap-1.5">
+                  <span style={mono} className={`text-[10px] ${cfg.text} opacity-60`}>{r.confidence}%</span>
+                  <div className="w-full h-px bg-white/5 overflow-hidden">
+                    <div className={`h-full ${cfg.dot}`} style={{ width: `${r.confidence}%` }} />
+                  </div>
+                </div>
+                <div className="px-4 py-4 flex flex-col justify-center">
+                  <span style={mono} className="text-[9px] text-white/25">{r.date}</span>
+                  <span style={mono} className="text-[9px] text-white/15">{r.time}</span>
+                </div>
+                <div className="px-3 py-4 flex items-center justify-center">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    className={`text-white/18 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Mobile row */}
+              <div
+                className="md:hidden px-4 py-4 flex items-start gap-3 cursor-pointer"
+                onClick={() => setExpanded(isOpen ? null : r.id)}
+              >
+                <div className={`w-px h-10 mt-1 flex-shrink-0 ${cfg.dot}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span style={mono} className={`text-[9px] ${cfg.text} opacity-70`}>{r.id}</span>
+                    <span style={mono} className={`text-[8px] uppercase tracking-[0.12em] px-1.5 py-0.5 border ${cfg.badge}`}>{r.urgency}</span>
+                  </div>
+                  <p className="text-sm text-white/50 truncate">{r.symptoms}</p>
+                  <p style={mono} className="text-[8px] text-white/22 mt-0.5">{r.specialty} · {r.date} {r.time}</p>
+                </div>
+              </div>
+
+              {/* Expanded */}
+              {isOpen && (
+                <div className="px-4 pb-5 pt-1 border-t border-white/5 bg-white/[0.01]">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2">
+                      <p style={mono} className="text-[7px] uppercase tracking-[0.3em] text-white/18 mb-2">Nota clínica original</p>
+                      <p className="text-sm text-white/45 leading-relaxed font-light">{r.note}</p>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <p style={mono} className="text-[7px] uppercase tracking-[0.3em] text-white/18 mb-1">Estado</p>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${r.status === 'Completado' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                          <span style={mono} className="text-[10px] text-white/45">{r.status}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p style={mono} className="text-[7px] uppercase tracking-[0.3em] text-white/18 mb-1">Confianza del modelo</p>
+                        <span style={serif} className={`text-3xl ${cfg.text}`}>{r.confidence}<span className="text-lg opacity-50">%</span></span>
+                      </div>
+                      <div>
+                        <p style={mono} className="text-[7px] uppercase tracking-[0.3em] text-white/18 mb-1">Procesado</p>
+                        <span style={mono} className="text-[10px] text-white/35">{r.date} a las {r.time}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      {!loading && (
+        <div className="flex items-center justify-between pt-2">
+          <span style={mono} className="text-[8px] text-white/18 uppercase tracking-[0.2em]">
+            {filtered.length} de {results.length} registros
+          </span>
+          <div className="flex items-center gap-4">
+            {[
+              { label: 'Alta', count: alta, color: 'bg-red-400' },
+              { label: 'Media', count: media, color: 'bg-amber-400' },
+              { label: 'Baja', count: baja, color: 'bg-emerald-400' },
+            ].map(({ label, count, color }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <div className={`w-1.5 h-1.5 ${color}`} />
+                <span style={mono} className="text-[8px] text-white/20 uppercase tracking-[0.15em]">{count} {label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default HistoryView;

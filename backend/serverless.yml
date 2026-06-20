@@ -1,0 +1,102 @@
+service: sanaflow-backend
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: false # Ajustar a true si hay problemas compilando PyJWT en CI/CD
+    
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-east-1
+  environment:
+    GROQ_API_KEY: ${env:GROQ_API_KEY, 'tu_api_key_aqui'}
+    GEMINI_API_KEY: ${env:GEMINI_API_KEY, 'tu_gemini_key'}
+    OPENROUTER_API_KEY: ${env:OPENROUTER_API_KEY, 'tu_openrouter_key'}
+    JWT_SECRET: ${env:JWT_SECRET, 'SanaFlowSuperSecretKey2026!'}
+    USERS_TABLE: ${self:service}-users-${sls:stage}
+    RESULTS_TABLE: ${self:service}-results-${sls:stage}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "sqs:SendMessage"
+            - "sqs:ReceiveMessage"
+            - "sqs:DeleteMessage"
+            - "sqs:GetQueueAttributes"
+          Resource: !GetAtt TriageQueue.Arn
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:PutItem"
+            - "dynamodb:GetItem"
+            - "dynamodb:Query"
+            - "dynamodb:Scan"
+          Resource: 
+            - !GetAtt UsersTable.Arn
+            - !GetAtt ResultsTable.Arn
+
+functions:
+  # 1. Autenticación: Registro
+  registerUser:
+    handler: src/auth.register
+    events:
+      - httpApi:
+          path: /auth/register
+          method: post
+
+  # 2. Autenticación: Login
+  loginUser:
+    handler: src/auth.login
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+
+  # 3. Worker de Triaje (Consume SQS)
+  processTriage:
+    handler: src/triage_worker.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: !GetAtt TriageQueue.Arn
+          batchSize: 5 # Procesa 5 notas simultáneas
+
+resources:
+  Resources:
+    # --- Colas SQS ---
+    TriageQueue:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:service}-triage-queue-${sls:stage}"
+        VisibilityTimeout: 60 # Tiempo extra para reintentos por Rate Limit
+        MessageRetentionPeriod: 86400
+
+    # --- Bases de Datos ---
+    UsersTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    ResultsTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: ${self:provider.environment.RESULTS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
