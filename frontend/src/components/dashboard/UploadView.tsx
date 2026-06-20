@@ -139,7 +139,6 @@ const UploadView = () => {
           {pipelineStages.map((stage, i) => {
             const isDone    = done || (isUploading && pipelineStep > i);
             const isActive  = isUploading && pipelineStep === i;
-            const isPending = !done && !isActive && !isDone;
             return (
               <div key={stage.label} className="flex items-center flex-shrink-0">
                 <div className="flex flex-col items-center gap-2 text-center w-28">

@@ -205,7 +205,6 @@ const TriageDashboard = () => {
               {pipelineStages.map((stage, i) => {
                 const done    = pipelineStep > i;
                 const active  = pipelineStep === i;
-                const pending = pipelineStep < i;
                 return (
                   <div key={stage} className="flex items-stretch gap-4">
                     {/* Connector column */}

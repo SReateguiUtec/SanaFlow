@@ -49,17 +49,27 @@ const LiquidBackground = () => {
 
 const Monolith = () => {
     const meshRef = useRef<THREE.Mesh>(null);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
     useFrame((state) => {
         if (meshRef.current) {
             meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.18;
             meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime() * 0.3) * 0.08;
         }
     });
+    
     return (
         <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.8}>
-            <mesh ref={meshRef}>
+            <mesh ref={meshRef} scale={isMobile ? 0.5 : 1}>
                 <icosahedronGeometry args={[12, 1]} />
-                <MeshDistortMaterial color="#0d0a06" speed={3} distort={0.35} roughness={0.02} metalness={1.0} />
+                <MeshDistortMaterial 
+                    color="#2a1e0f" 
+                    emissive="#120c04" 
+                    speed={3} 
+                    distort={0.35} 
+                    roughness={0.4} 
+                    metalness={0.6} 
+                />
             </mesh>
         </Float>
     );
@@ -124,7 +134,7 @@ export const Component = () => {
                 <div className="flex-1 min-w-0 flex flex-col justify-between pb-12 md:pb-8 w-full">
 
                     {/* Status Badge */}
-                    <div className="hero-label flex items-center gap-3 mt-2">
+                    <div className="hero-label flex items-center gap-3 mt-2 mb-6">
                         <div className="flex items-center gap-2 px-3 py-1.5 border border-amber-400/20 bg-amber-400/5">
                             <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
                             <span className="font-mono-custom text-[10px] font-medium text-amber-400/80 uppercase tracking-[0.25em]">Sistema Activo — IA Clínica</span>
@@ -132,7 +142,7 @@ export const Component = () => {
                     </div>
 
                     {/* Headline */}
-                    <div className="max-w-4xl lg:-translate-y-6 pr-8">
+                    <div className="max-w-4xl pr-8">
                         <h1 className="font-serif text-[clamp(3.2rem,9vw,10.5rem)] leading-[0.88] tracking-tight text-white">
                             SANA<br />
                             <span className="text-outline italic">FLOW</span>

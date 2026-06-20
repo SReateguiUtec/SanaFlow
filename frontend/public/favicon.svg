@@ -1,16 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="7" fill="#0A0806"/>
-
-  <!-- Crosshair ring -->
-  <circle cx="16" cy="16" r="8" stroke="#D4A85A" stroke-width="1.2" opacity="0.4"/>
-  <circle cx="16" cy="16" r="4.5" stroke="#D4A85A" stroke-width="1.2" opacity="0.7"/>
-
-  <!-- Tick marks at cardinal points -->
-  <line x1="16" y1="5" x2="16" y2="8"   stroke="#D4A85A" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="16" y1="24" x2="16" y2="27" stroke="#D4A85A" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="5"  y1="16" x2="8"  y2="16" stroke="#D4A85A" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="24" y1="16" x2="27" y2="16" stroke="#D4A85A" stroke-width="1.2" stroke-linecap="round"/>
-
-  <!-- Center dot -->
-  <circle cx="16" cy="16" r="2" fill="#D4A85A"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Fondo Oscuro -->
+  <rect width="120" height="120" rx="28" fill="#0A0806" />
+  
+  <!-- Cruz Médica sutil (Sana) -->
+  <path d="M 45 25 h 30 v 20 h 20 v 30 h -20 v 20 h -30 v -20 h -20 v -30 h 20 z" fill="#D4A85A" opacity="0.15" />
+  
+  <!-- Onda de Electrocardiograma (Flow) -->
+  <path d="M 15 60 L 35 60 L 45 35 L 60 90 L 75 45 L 85 60 L 105 60" fill="none" stroke="#D4A85A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
 </svg>

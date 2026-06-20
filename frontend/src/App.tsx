@@ -13,6 +13,7 @@ import DashboardLayout from './pages/DashboardLayout';
 import OverviewView from './components/dashboard/OverviewView';
 import UploadView from './components/dashboard/UploadView';
 import HistoryView from './components/dashboard/HistoryView';
+import AnalyticsView from './components/dashboard/AnalyticsView';
 
 const LandingPage = () => (
   <div className="bg-[#060503] min-h-screen text-white">
@@ -38,6 +39,7 @@ function App() {
           <Route index element={<OverviewView />} />
           <Route path="upload" element={<UploadView />} />
           <Route path="history" element={<HistoryView />} />
+          <Route path="analytics" element={<AnalyticsView />} />
         </Route>
         
         {/* Fallback */}
