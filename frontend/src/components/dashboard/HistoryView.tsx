@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api } from '../../lib/api';
 
 const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
@@ -15,16 +16,6 @@ type TriageResult = {
   time: string;
 };
 
-const mockData: TriageResult[] = [
-  { id: 'TRJ-042', note: 'Paciente masculino de 45 años con dolor en pecho y brazo izquierdo, sudoración fría y presión arterial de 160/100 mmHg.', symptoms: 'Dolor torácico, Sudoración', urgency: 'Alta', specialty: 'Cardiología', status: 'Completado', confidence: 97, date: 'Jun 20', time: '11:42' },
-  { id: 'TRJ-041', note: 'Mujer de 28 años presenta fiebre de 38.5°C, tos seca y dolor de garganta desde hace 3 días. Sin disnea.', symptoms: 'Fiebre, Tos, Odinofagia', urgency: 'Baja', specialty: 'Medicina General', status: 'Completado', confidence: 91, date: 'Jun 20', time: '11:38' },
-  { id: 'TRJ-040', note: 'Paciente refiere dolor abdominal agudo en fosa ilíaca derecha con irradiación, náuseas y vómito. Signo de rebote positivo.', symptoms: 'Dolor abdominal, Náuseas, Rebote +', urgency: 'Media', specialty: 'Gastroenterología', status: 'Completado', confidence: 88, date: 'Jun 20', time: '10:55' },
-  { id: 'TRJ-039', note: 'Niño de 8 años con erupción cutánea pruriginosa generalizada tras consumo de mariscos. Sin angioedema.', symptoms: 'Erupción cutánea, Prurito', urgency: 'Media', specialty: 'Alergología', status: 'Completado', confidence: 94, date: 'Jun 20', time: '10:21' },
-  { id: 'TRJ-038', note: 'Paciente de 60 años con pérdida de visión súbita en ojo derecho desde hace 20 minutos. Antecedente de HTA y DM2.', symptoms: 'Pérdida visual súbita', urgency: 'Alta', specialty: 'Oftalmología', status: 'Completado', confidence: 96, date: 'Jun 19', time: '18:04' },
-  { id: 'TRJ-037', note: 'Adolescente de 17 años con cefalea pulsátil intensa, fotofobia y náuseas. Sin fiebre. Episodio previo similar hace 2 meses.', symptoms: 'Cefalea, Fotofobia, Náuseas', urgency: 'Media', specialty: 'Neurología', status: 'Completado', confidence: 89, date: 'Jun 19', time: '15:30' },
-  { id: 'TRJ-036', note: 'Mujer de 55 años con disnea progresiva al esfuerzo y edema bilateral de miembros inferiores. Antecedente de cardiopatía.', symptoms: 'Disnea, Edema bilateral', urgency: 'Alta', specialty: 'Cardiología', status: 'Procesando', confidence: 93, date: 'Jun 19', time: '09:12' },
-];
-
 const uCfg = {
   Alta:  { dot: 'bg-red-400',     text: 'text-red-400',     badge: 'text-red-400 border-red-400/20 bg-red-400/6'          },
   Media: { dot: 'bg-amber-400',   text: 'text-amber-400',   badge: 'text-amber-400 border-amber-400/20 bg-amber-400/6'    },
@@ -39,9 +30,36 @@ const HistoryView = () => {
   const [expanded, setExpanded]   = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => { setResults(mockData); setLoading(false); }, 1200);
-    return () => clearTimeout(t);
+    const load = async () => {
+      try {
+        const data = await api.results.get();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items = (data.resultados || []).map((r: any, i: number) => {
+          const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
+          const urgencyRaw: string = r.nivel_urgencia || 'Baja';
+          const urgency = (['Alta', 'Media', 'Baja'].includes(urgencyRaw) ? urgencyRaw : 'Baja') as 'Alta' | 'Media' | 'Baja';
+          return {
+            id: `TRJ-${String(i + 1).padStart(3, '0')}`,
+            note: r.nota_original || '',
+            symptoms: r.sintomas_principales || 'Sin síntomas',
+            urgency,
+            specialty: r.especialidad_sugerida || 'Medicina General',
+            status: 'Completado' as const,
+            confidence: 95,
+            date: ts.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' }),
+            time: ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          };
+        });
+        setResults(items);
+      } catch (e) {
+        console.error('Error cargando resultados:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
+
 
   const filtered = results
     .filter(r => filter === 'Todos' || r.urgency === filter)
