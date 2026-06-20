@@ -37,21 +37,26 @@ const Navbar = () => {
         {/* Logo */}
         <div
           className="flex items-center gap-3 cursor-pointer"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            if (isLanding) {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              navigate('/');
+              setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+            }
+          }}
         >
-          <div className="relative w-2 h-2">
-            <div className="absolute inset-0 bg-amber-400 rounded-full animate-pulse" />
-            <div className="absolute inset-0 bg-amber-400 rounded-full animate-ping opacity-30" />
-          </div>
+          <img src="/favicon.svg" alt="SanaFlow Icon" className="w-6 h-6" />
           <span className="font-serif text-white text-lg tracking-tight">SanaFlow</span>
         </div>
 
         {/* Desktop Links */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden lg:flex items-center gap-6 xl:gap-8">
           {[
             { label: 'El Problema', id: 'problema' },
             { label: 'Arquitectura', id: 'arquitectura' },
             { label: 'Resiliencia', id: 'resiliencia' },
+            { label: 'Demo', id: 'dashboard' },
           ].map((link) => (
             <button
               key={link.id}
@@ -64,7 +69,7 @@ const Navbar = () => {
         </div>
 
         {/* Auth + Demo CTAs */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <button
             onClick={() => navigate('/login')}
             className={`font-mono-custom text-[11px] uppercase tracking-[0.2em] px-4 py-2.5 text-white/50 hover:text-white transition-colors duration-300 ${
@@ -87,7 +92,7 @@ const Navbar = () => {
 
         {/* Mobile Menu Toggle */}
         <button
-          className="md:hidden flex flex-col gap-1.5 p-2"
+          className="lg:hidden flex flex-col gap-1.5 p-2"
           onClick={() => setMenuOpen(!menuOpen)}
         >
           <span className={`block w-5 h-px bg-white transition-all duration-300 ${menuOpen ? 'rotate-45 translate-y-[7px]' : ''}`} />
@@ -98,11 +103,12 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden bg-[#050505] border-t border-white/8 px-6 py-6 flex flex-col gap-5">
+        <div className="lg:hidden bg-[#050505] border-t border-white/8 px-6 py-6 flex flex-col gap-5">
           {[
             { label: 'El Problema', id: 'problema' },
             { label: 'Arquitectura', id: 'arquitectura' },
             { label: 'Resiliencia', id: 'resiliencia' },
+            { label: 'Demo', id: 'dashboard' },
           ].map((link) => (
             <button
               key={link.id}

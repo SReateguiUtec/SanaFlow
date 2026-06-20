@@ -26,6 +26,14 @@ const LandingPage = () => (
   </div>
 );
 
+import React from 'react';
+import { getToken } from './lib/api';
+
+const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = getToken();
+  return token ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -35,7 +43,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         
         {/* Dashboard Routes */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route path="/dashboard" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
           <Route index element={<OverviewView />} />
           <Route path="upload" element={<UploadView />} />
           <Route path="history" element={<HistoryView />} />
