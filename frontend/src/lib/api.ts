@@ -34,6 +34,11 @@ export const api = {
     sendNotes: (notas: string[]) => authFetch('/upload', { method: 'POST', body: JSON.stringify({ notas }) }),
   },
   results: {
-    get: () => authFetch('/results', { method: 'GET' }),
+    get: (limit: number = 10, lastKey?: string) => {
+      const query = new URLSearchParams();
+      query.append('limit', limit.toString());
+      if (lastKey) query.append('last_key', lastKey);
+      return authFetch(`/results?${query.toString()}`, { method: 'GET' });
+    },
   }
 };

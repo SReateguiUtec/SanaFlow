@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { wsService } from '../../lib/wsService';
 
@@ -24,41 +24,69 @@ const uCfg = {
 };
 
 const HistoryView = () => {
-  const [results, setResults] = useState<TriageResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'Todos' | 'Alta' | 'Media' | 'Baja'>('Todos');
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [results, setResults]     = useState<TriageResult[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastKey, setLastKey]     = useState<string | null>(null);
+  const [filter, setFilter]       = useState<'Todos' | 'Alta' | 'Media' | 'Baja'>('Todos');
+  const [search, setSearch]       = useState('');
+  const [expanded, setExpanded]   = useState<string | null>(null);
+
+  const loadData = useCallback(async (isLoadMore: boolean = false, currentLastKey?: string | null) => {
+    try {
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
+
+      const data = await api.results.get(10, isLoadMore && currentLastKey ? currentLastKey : undefined);
+      interface RawTriageRecord {
+        id?: string;
+        procesado_en?: number;
+        nivel_urgencia?: string;
+        nota_original?: string;
+        sintomas_principales?: string;
+        especialidad_sugerida?: string;
+      }
+      
+      const items = (data.resultados || []).map((r: RawTriageRecord, i: number) => {
+        const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
+        const urgencyRaw: string = r.nivel_urgencia || 'Baja';
+        const urgency = (['Alta', 'Media', 'Baja'].includes(urgencyRaw) ? urgencyRaw : 'Baja') as 'Alta' | 'Media' | 'Baja';
+        return {
+          id: r.id || `TRJ-${String(i + 1).padStart(3, '0')}`,
+          note: r.nota_original || '',
+          symptoms: r.sintomas_principales || 'Sin síntomas',
+          urgency,
+          specialty: r.especialidad_sugerida || 'Medicina General',
+          status: 'Completado' as const,
+          confidence: 95,
+          date: ts.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' }),
+          time: ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        };
+      });
+
+      if (isLoadMore) {
+        setResults(prev => [...prev, ...items]);
+      } else {
+        setResults(items);
+      }
+      
+      setLastKey(data.last_key || null);
+    } catch (e) {
+      console.error('Error cargando resultados:', e);
+    } finally {
+      if (isLoadMore) setLoadingMore(false);
+      else setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await api.results.get();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const items = (data.resultados || []).map((r: any, i: number) => {
-          const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
-          const urgencyRaw: string = r.nivel_urgencia || 'Baja';
-          const urgency = (['Alta', 'Media', 'Baja'].includes(urgencyRaw) ? urgencyRaw : 'Baja') as 'Alta' | 'Media' | 'Baja';
-          return {
-            id: `TRJ-${String(i + 1).padStart(3, '0')}`,
-            note: r.nota_original || '',
-            symptoms: r.sintomas_principales || 'Sin síntomas',
-            urgency,
-            specialty: r.especialidad_sugerida || 'Medicina General',
-            status: 'Completado' as const,
-            confidence: 95,
-            date: ts.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' }),
-            time: ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false }),
-          };
-        });
-        setResults(items);
-      } catch (e) {
-        console.error('Error cargando resultados:', e);
-      } finally {
-        setLoading(false);
+    let mounted = true;
+    const init = async () => {
+      if (mounted) {
+        await loadData(false, null);
       }
     };
-    load();
+    init();
 
     wsService.connect();
     const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
@@ -83,10 +111,11 @@ const HistoryView = () => {
     });
 
     return () => {
+      mounted = false;
       unsubscribe();
       wsService.disconnect();
     };
-  }, []);
+  }, [loadData]);
 
 
   const filtered = results
@@ -310,6 +339,27 @@ const HistoryView = () => {
           );
         })}
       </div>
+
+      {/* Load More Button */}
+      {!loading && lastKey && (
+        <div className="py-6 flex justify-center border border-t-0 border-white/6">
+          <button
+            onClick={() => loadData(true, lastKey)}
+            disabled={loadingMore}
+            className={`px-6 py-2 border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all duration-200 text-xs tracking-wider uppercase flex items-center gap-2 ${loadingMore ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={mono}
+          >
+            {loadingMore ? (
+              <>
+                <div className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
+                Cargando...
+              </>
+            ) : (
+              'Cargar más resultados'
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       {!loading && (
