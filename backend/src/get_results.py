@@ -42,7 +42,6 @@ def handler(event, context):
             scan_kwargs['FilterExpression'] = boto3.dynamodb.conditions.Attr('batch_id').eq(batch_id)
             
         if last_key:
-            import base64
             # Decodificar el last_key (en base64 JSON string)
             decoded_key = json.loads(base64.b64decode(last_key).decode('utf-8'))
             # Si procesado_en es parte de la key, lo convertimos a Decimal para boto3
