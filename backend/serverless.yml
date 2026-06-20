@@ -7,7 +7,7 @@ plugins:
 
 custom:
   pythonRequirements:
-    dockerizePip: false # Ajustar a true si hay problemas compilando PyJWT en CI/CD
+    dockerizePip: false # EC2 Amazon Linux compila nativamente, no se necesita Docker
   
   # URL base del WebSocket API para que triage_worker pueda hacer push
   wsEndpoint:
