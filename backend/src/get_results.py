@@ -1,6 +1,7 @@
 import os
 import json
 import boto3
+import base64
 from boto3.dynamodb.conditions import Key
 
 dynamodb      = boto3.resource('dynamodb', region_name='us-east-1')
@@ -71,5 +72,7 @@ def handler(event, context):
         })
 
     except Exception as e:
-        print(f"[ERROR] {e}")
-        return create_response(500, {"message": "Error interno del servidor."})
+        import traceback
+        error_msg = traceback.format_exc()
+        print(f"[ERROR] {error_msg}")
+        return create_response(500, {"message": f"Error interno del servidor: {str(e)}", "traceback": error_msg})
