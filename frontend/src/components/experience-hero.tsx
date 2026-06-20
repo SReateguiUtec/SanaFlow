@@ -37,9 +37,14 @@ const LiquidBackground = () => {
             vec2 m = uMouse * 0.08;
             float wave = (sin(uv.x * 6.0 + t + m.x * 10.0) + sin(uv.y * 5.0 - t * 0.8 + m.y * 10.0)) * 0.5 + 0.5;
             float warm = smoothstep(0.0, 1.0, wave);
-            vec3 cold = vec3(0.008, 0.008, 0.012);
-            vec3 warmTone = vec3(0.055, 0.038, 0.015);
-            gl_FragColor = vec4(mix(cold, warmTone, warm * 0.6), 1.0);
+            /* Radial vignette — brighter in center */
+            vec2 centered = uv - 0.5;
+            float vignette = 1.0 - dot(centered, centered) * 1.2;
+            vec3 cold = vec3(0.025, 0.02, 0.015);
+            vec3 warmTone = vec3(0.10, 0.065, 0.018);
+            vec3 col = mix(cold, warmTone, warm * 0.75);
+            col *= (0.7 + vignette * 0.42);
+            gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
           }
         `}
             />
@@ -62,13 +67,14 @@ const Monolith = () => {
         <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.8}>
             <mesh ref={meshRef} scale={isMobile ? 0.5 : 1}>
                 <icosahedronGeometry args={[12, 1]} />
-                <MeshDistortMaterial 
-                    color="#2a1e0f" 
-                    emissive="#120c04" 
-                    speed={3} 
-                    distort={0.35} 
-                    roughness={0.4} 
-                    metalness={0.6} 
+                <MeshDistortMaterial
+                    color="#3d2a10"
+                    emissive="#1a0e04"
+                    emissiveIntensity={0.4}
+                    speed={3}
+                    distort={0.35}
+                    roughness={0.15}
+                    metalness={0.85}
                 />
             </mesh>
         </Float>
@@ -113,12 +119,20 @@ export const Component = () => {
 
     return (
         <section ref={containerRef} className="relative min-h-screen w-full bg-[#060503] flex flex-col overflow-hidden">
+            {/* CSS fallback glow — visible instantly while WebGL loads */}
+            <div className="fixed inset-0 z-0 pointer-events-none">
+                <div className="absolute inset-0" style={{
+                    background: 'radial-gradient(ellipse 70% 60% at 60% 50%, rgba(140,85,15,0.07) 0%, rgba(80,45,8,0.04) 50%, transparent 75%)'
+                }} />
+            </div>
+
             {/* Three.js Canvas */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <Canvas camera={{ position: [0, 0, 60], fov: 35 }}>
-                    <ambientLight intensity={0.3} />
-                    <spotLight position={[40, 60, 40]} intensity={2} color="#d6a85a" />
-                    <spotLight position={[-40, -20, 30]} intensity={0.8} color="#ffffff" />
+                    <ambientLight intensity={1.2} />
+                    <spotLight position={[40, 60, 40]} intensity={8} color="#d6a85a" />
+                    <spotLight position={[-40, -20, 30]} intensity={4} color="#c8b89a" />
+                    <spotLight position={[0, -60, 20]} intensity={2} color="#ffffff" />
                     <LiquidBackground />
                     <Monolith />
                 </Canvas>

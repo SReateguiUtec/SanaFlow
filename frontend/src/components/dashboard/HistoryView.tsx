@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { wsService } from '../../lib/wsService';
 
 const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
@@ -17,17 +18,17 @@ type TriageResult = {
 };
 
 const uCfg = {
-  Alta:  { dot: 'bg-red-400',     text: 'text-red-400',     badge: 'text-red-400 border-red-400/20 bg-red-400/6'          },
-  Media: { dot: 'bg-amber-400',   text: 'text-amber-400',   badge: 'text-amber-400 border-amber-400/20 bg-amber-400/6'    },
-  Baja:  { dot: 'bg-emerald-400', text: 'text-emerald-400', badge: 'text-emerald-400 border-emerald-400/20 bg-emerald-400/6' },
+  Alta: { dot: 'bg-red-400', text: 'text-red-400', badge: 'text-red-400 border-red-400/20 bg-red-400/6' },
+  Media: { dot: 'bg-amber-400', text: 'text-amber-400', badge: 'text-amber-400 border-amber-400/20 bg-amber-400/6' },
+  Baja: { dot: 'bg-emerald-400', text: 'text-emerald-400', badge: 'text-emerald-400 border-emerald-400/20 bg-emerald-400/6' },
 };
 
 const HistoryView = () => {
-  const [results, setResults]     = useState<TriageResult[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [filter, setFilter]       = useState<'Todos' | 'Alta' | 'Media' | 'Baja'>('Todos');
-  const [search, setSearch]       = useState('');
-  const [expanded, setExpanded]   = useState<string | null>(null);
+  const [results, setResults] = useState<TriageResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'Todos' | 'Alta' | 'Media' | 'Baja'>('Todos');
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -58,6 +59,33 @@ const HistoryView = () => {
       }
     };
     load();
+
+    wsService.connect();
+    const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
+      const msg = rawMsg as { tipo?: string, data?: Record<string, unknown> };
+      if (msg.tipo === 'RESULTADO_TRIAJE' && msg.data) {
+        const r = msg.data;
+        const ts = r.procesado_en ? new Date((r.procesado_en as number) * 1000) : new Date();
+        const urgencyRaw = (r.nivel_urgencia as string) || 'Baja';
+        const newResult: TriageResult = {
+          id: `TRJ-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+          note: (r.nota_original as string) || '',
+          symptoms: (r.sintomas_principales as string) || '',
+          urgency: (['Alta', 'Media', 'Baja'].includes(urgencyRaw) ? urgencyRaw : 'Baja') as 'Alta' | 'Media' | 'Baja',
+          specialty: (r.especialidad_sugerida as string) || '',
+          status: 'Completado',
+          confidence: 95,
+          date: ts.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' }),
+          time: ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        };
+        setResults(prev => [newResult, ...prev]);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      wsService.disconnect();
+    };
   }, []);
 
 
@@ -65,9 +93,9 @@ const HistoryView = () => {
     .filter(r => filter === 'Todos' || r.urgency === filter)
     .filter(r => !search || r.symptoms.toLowerCase().includes(search.toLowerCase()) || r.specialty.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase()));
 
-  const alta  = results.filter(r => r.urgency === 'Alta').length;
+  const alta = results.filter(r => r.urgency === 'Alta').length;
   const media = results.filter(r => r.urgency === 'Media').length;
-  const baja  = results.filter(r => r.urgency === 'Baja').length;
+  const baja = results.filter(r => r.urgency === 'Baja').length;
 
   return (
     <div className="space-y-6">
@@ -105,7 +133,7 @@ const HistoryView = () => {
         {/* Search */}
         <div className="flex-1 flex items-center gap-3 border border-white/8 bg-white/[0.02] px-4 py-2.5">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/20 flex-shrink-0">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
             type="text"
@@ -118,7 +146,7 @@ const HistoryView = () => {
           {search && (
             <button onClick={() => setSearch('')} className="text-white/20 hover:text-white/50 transition-colors">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           )}
@@ -131,14 +159,13 @@ const HistoryView = () => {
               key={f}
               onClick={() => setFilter(f)}
               style={mono}
-              className={`text-[9px] uppercase tracking-[0.18em] px-3 py-2 border transition-all duration-200 ${
-                filter === f
-                  ? f === 'Alta'  ? 'border-red-400/40 bg-red-400/8 text-red-400'
-                  : f === 'Media' ? 'border-amber-400/40 bg-amber-400/8 text-amber-400'
-                  : f === 'Baja'  ? 'border-emerald-400/40 bg-emerald-400/8 text-emerald-400'
-                  : 'border-white/18 bg-white/4 text-white'
+              className={`text-[9px] uppercase tracking-[0.18em] px-3 py-2 border transition-all duration-200 ${filter === f
+                  ? f === 'Alta' ? 'border-red-400/40 bg-red-400/8 text-red-400'
+                    : f === 'Media' ? 'border-amber-400/40 bg-amber-400/8 text-amber-400'
+                      : f === 'Baja' ? 'border-emerald-400/40 bg-emerald-400/8 text-emerald-400'
+                        : 'border-white/18 bg-white/4 text-white'
                   : 'border-white/6 text-white/25 hover:border-white/14 hover:text-white/50'
-              }`}
+                }`}
             >
               {f}
             </button>
@@ -179,7 +206,7 @@ const HistoryView = () => {
           <div className="py-20 flex flex-col items-center gap-4">
             <div className="w-10 h-10 border border-white/6 flex items-center justify-center">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-white/15">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </div>
             <p style={mono} className="text-[9px] text-white/15 uppercase tracking-[0.25em]">Sin resultados para esta búsqueda</p>
@@ -205,9 +232,9 @@ const HistoryView = () => {
                 <div className="px-4 py-4 flex items-center">
                   <span style={mono} className={`text-[10px] ${cfg.text} opacity-70`}>{r.id}</span>
                 </div>
-                <div className="px-4 py-4 flex items-center gap-2.5">
+                <div className="px-4 py-4 flex items-center gap-2.5 min-w-0">
                   <div className={`w-px h-5 flex-shrink-0 ${cfg.dot}`} />
-                  <span className="text-sm text-white/55 truncate">{r.symptoms}</span>
+                  <span className="text-sm text-white/55 truncate flex-1 min-w-0">{r.symptoms}</span>
                 </div>
                 <div className="px-4 py-4 flex items-center">
                   <span className="text-sm text-white/35">{r.specialty}</span>
@@ -230,7 +257,7 @@ const HistoryView = () => {
                 <div className="px-3 py-4 flex items-center justify-center">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                     className={`text-white/18 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                    <polyline points="6 9 12 15 18 9"/>
+                    <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </div>
               </div>

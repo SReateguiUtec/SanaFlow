@@ -21,7 +21,7 @@ WS_ENDPOINT = os.environ.get("WS_ENDPOINT", "")
 def call_groq(nota_clinica):
     chat_completion = groq_client.chat.completions.create(
         messages=[
-            {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales', 'nivel_urgencia' y 'especialidad_sugerida'."},
+            {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales' (resumen de máximo 2 palabras, ej: 'Dolor Abdominal'), 'nivel_urgencia' (Alta/Media/Baja) y 'especialidad_sugerida'."},
             {"role": "user", "content": nota_clinica}
         ],
         model="llama-3.1-8b-instant",
@@ -39,7 +39,7 @@ def call_openrouter(nota_clinica):
         json={
             "model": "openrouter/auto",
             "messages": [
-                {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales', 'nivel_urgencia' y 'especialidad_sugerida'."},
+                {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales' (resumen de máximo 2 palabras, ej: 'Dolor Abdominal'), 'nivel_urgencia' (Alta/Media/Baja) y 'especialidad_sugerida'."},
                 {"role": "user", "content": nota_clinica}
             ]
         }
