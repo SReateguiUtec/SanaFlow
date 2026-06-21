@@ -66,3 +66,7 @@ serverless deploy
 ## 🏆 ¿Por qué SanaFlow destaca?
 
 No somos un monolito CRUD tradicional. SanaFlow está diseñado pensando en **alta disponibilidad, bajo costo y cero mantenimiento de servidores**. Al tercerizar la lógica condicional compleja a un LLM masivo y conectar los componentes mediante Colas de Mensajes, el sistema está listo para operar a escala de un sistema de salud nacional.
+
+## DEMO
+
+video de la demo: https://www.youtube.com/watch?v=Eo7TTj1-2j8
