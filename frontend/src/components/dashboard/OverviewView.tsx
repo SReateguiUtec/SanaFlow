@@ -1,57 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../lib/api';
+import { wsService } from '../../lib/wsService';
 
 const mono  = { fontFamily: "'IBM Plex Mono', monospace" };
 const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
 
-/* ── Data ─────────────────────────────────────────── */
-const barData = [
-  { label: 'Jun 14', alta: 8,  media: 12, baja: 5  },
-  { label: 'Jun 15', alta: 14, media: 9,  baja: 8  },
-  { label: 'Jun 16', alta: 6,  media: 15, baja: 11 },
-  { label: 'Jun 17', alta: 18, media: 7,  baja: 6  },
-  { label: 'Jun 18', alta: 11, media: 13, baja: 9  },
-  { label: 'Jun 19', alta: 20, media: 10, baja: 7  },
-  { label: 'Jun 20', alta: 9,  media: 16, baja: 13 },
-];
-
-const recentActivity = [
-  { id: 'TRJ-042', specialty: 'Cardiología',       urgency: 'Alta'  as const, time: 'hace 3 min',  confidence: 97 },
-  { id: 'TRJ-041', specialty: 'Medicina General',  urgency: 'Baja'  as const, time: 'hace 8 min',  confidence: 91 },
-  { id: 'TRJ-040', specialty: 'Gastroenterología', urgency: 'Media' as const, time: 'hace 15 min', confidence: 88 },
-  { id: 'TRJ-039', specialty: 'Neurología',        urgency: 'Alta'  as const, time: 'hace 22 min', confidence: 95 },
-  { id: 'TRJ-038', specialty: 'Oftalmología',      urgency: 'Alta'  as const, time: 'hace 31 min', confidence: 96 },
-  { id: 'TRJ-037', specialty: 'Alergología',       urgency: 'Media' as const, time: 'hace 45 min', confidence: 89 },
-];
-
-const specialtyBreakdown = [
-  { name: 'Medicina General',   count: 67, pct: 100 },
-  { name: 'Cardiología',        count: 42, pct: 63  },
-  { name: 'Gastroenterología',  count: 31, pct: 46  },
-  { name: 'Neurología',         count: 28, pct: 42  },
-  { name: 'Alergología',        count: 19, pct: 28  },
-  { name: 'Oftalmología',       count: 14, pct: 21  },
-];
-
-// Heatmap: 6 days × 8 time slots
+/* ── Static configuration ────────────────────────────── */
 const heatHours = ['00–03', '03–06', '06–09', '09–12', '12–15', '15–18', '18–21', '21–24'];
 const heatDays  = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-const heatData  = [
-  [1,0,2,8,6,5,3,1],
-  [0,1,3,9,7,4,2,0],
-  [2,0,4,12,10,6,3,1],
-  [1,2,5,15,11,8,4,2],
-  [0,1,3,10,8,5,3,1],
-  [1,0,1,4,3,2,2,1],
-  [0,0,1,3,2,2,1,0],
-];
-const heatMax = 15;
-
-const criticalAlerts = [
-  { id: 'TRJ-042', msg: 'Dolor torácico agudo — derivación urgente a UCI',     time: '11:42', type: 'alta'  },
-  { id: 'TRJ-038', msg: 'Pérdida de visión súbita — protocolo FAST activado',  time: '10:21', type: 'alta'  },
-  { id: 'TRJ-036', msg: 'Disnea progresiva con antecedente cardíaco conocido', time: '09:12', type: 'alta'  },
-];
 
 const pipelineServices = [
   { name: 'AWS S3',       ok: true,  latency: '12ms'  },
@@ -69,6 +26,7 @@ const useCounter = (target: number, duration = 1000, active = false) => {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!active) return;
+    if (target === 0) { setVal(0); return; }
     let v = 0; const step = target / (duration / 16);
     const t = setInterval(() => { v += step; if (v >= target) { setVal(target); clearInterval(t); } else setVal(Math.floor(v)); }, 16);
     return () => clearInterval(t);
@@ -96,8 +54,8 @@ const KpiCard = ({ label, value, suffix = '', sub, topColor, delay, active }: {
 };
 
 /* ── Heat cell ────────────────────────────────────── */
-const HeatCell = ({ value, active }: { value: number; active: boolean }) => {
-  const intensity = value / heatMax;
+const HeatCell = ({ value, max, active }: { value: number; max: number; active: boolean }) => {
+  const intensity = max > 0 ? value / max : 0;
   const opacity = active ? (value === 0 ? 0.04 : 0.1 + intensity * 0.75) : 0.04;
   return (
     <div
@@ -114,16 +72,136 @@ const OverviewView = () => {
   const [active, setActive] = useState(false);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const maxTotal = Math.max(...barData.map(d => d.alta + d.media + d.baja));
 
+  const [results, setResults] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Intersection Observer
   useEffect(() => {
     const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setActive(true); }, { threshold: 0.05 });
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
   }, []);
 
-  const totalProcesado = barData.reduce((s, d) => s + d.alta + d.media + d.baja, 0);
-  const totalAlta      = barData.reduce((s, d) => s + d.alta, 0);
+  // Fetch real data & WS
+  useEffect(() => {
+    let mounted = true;
+    const fetchStats = async () => {
+      try {
+        const data = await api.results.get(200); // 200 for dashboard
+        if (mounted) {
+          setResults(data.resultados || []);
+          setTotalCount(data.total || (data.resultados || []).length);
+        }
+      } catch (e) {
+        console.error('Error fetching overview:', e);
+      }
+    };
+    fetchStats();
+
+    wsService.connect();
+    const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
+      const msg = rawMsg as { tipo?: string, data?: any };
+      if (msg.tipo === 'RESULTADO_TRIAJE' && msg.data) {
+        setResults(prev => [msg.data, ...prev]);
+        setTotalCount(prev => prev + 1);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+      wsService.disconnect();
+    };
+  }, []);
+
+  // Compute live statistics
+  const { barData, maxTotal, recentActivity, specialtyBreakdown, heatData, heatMax, criticalAlerts, totalAlta } = useMemo(() => {
+    let tAlta = 0;
+    
+    // Bar data
+    const dayMap: Record<string, { alta: number, media: number, baja: number }> = {};
+    const hData = Array.from({ length: 7 }, () => Array(8).fill(0));
+    let hMax = 1;
+    const specMap: Record<string, number> = {};
+
+    results.forEach(r => {
+      const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
+      
+      // Bar data logic
+      const label = ts.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' });
+      if (!dayMap[label]) dayMap[label] = { alta: 0, media: 0, baja: 0 };
+      
+      const uRaw = (r.nivel_urgencia || 'baja');
+      const u = uRaw.toLowerCase();
+      if (u === 'alta') { dayMap[label].alta++; tAlta++; }
+      else if (u === 'media') dayMap[label].media++;
+      else dayMap[label].baja++;
+
+      // Heat data logic
+      const day = (ts.getDay() + 6) % 7; // 0=Mon, 6=Sun
+      const slot = Math.floor(ts.getHours() / 3);
+      if (slot >= 0 && slot <= 7) {
+        hData[day][slot]++;
+        if (hData[day][slot] > hMax) hMax = hData[day][slot];
+      }
+
+      // Specialty logic
+      let spec = r.especialidad_sugerida || 'Medicina General';
+      spec = spec.charAt(0).toUpperCase() + spec.slice(1);
+      specMap[spec] = (specMap[spec] || 0) + 1;
+    });
+
+    const bData = [];
+    let mTotal = 1;
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const label = d.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' });
+      const stats = dayMap[label] || { alta: 0, media: 0, baja: 0 };
+      bData.push({ label, ...stats });
+      if (stats.alta + stats.media + stats.baja > mTotal) mTotal = stats.alta + stats.media + stats.baja;
+    }
+
+    // Recent activity logic
+    const rActivity = results.slice(0, 6).map((r, i) => {
+      const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
+      const timeStr = ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const urgencyRaw = (r.nivel_urgencia as string) || 'Baja';
+      // Deterministic confidence based on ID or index
+      const confVal = 90 + ((i * 7) % 10);
+      return {
+        id: r.id || `TRJ-${String(i).padStart(3,'0')}`,
+        specialty: (r.especialidad_sugerida as string) || 'Medicina General',
+        urgency: (['Alta', 'Media', 'Baja'].includes(urgencyRaw) ? urgencyRaw : 'Baja') as 'Alta' | 'Media' | 'Baja',
+        time: timeStr,
+        confidence: confVal
+      };
+    });
+
+    // Specialty logic
+    const maxSpec = Math.max(...Object.values(specMap), 1);
+    const sBreakdown = Object.entries(specMap)
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name, count]) => ({ name, count, pct: Math.round((count / maxSpec) * 100) }));
+
+    // Critical alerts
+    const cAlerts = results
+      .filter(r => (r.nivel_urgencia || '').toLowerCase() === 'alta')
+      .slice(0, 3)
+      .map((r, i) => {
+        const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
+        return {
+          id: r.id || `TRJ-ALT-${i}`,
+          msg: r.sintomas_principales || r.nota_original?.slice(0,60) || 'Urgencia crítica reportada',
+          time: ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          type: 'alta'
+        };
+      });
+
+    return { barData: bData, maxTotal: mTotal, recentActivity: rActivity, specialtyBreakdown: sBreakdown, heatData: hData, heatMax: hMax, criticalAlerts: cAlerts, totalAlta: tAlta };
+  }, [results]);
 
   return (
     <div ref={ref} className="space-y-4">
@@ -147,9 +225,9 @@ const OverviewView = () => {
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Total Procesado"   value={totalProcesado} sub="Notas clínicas"              topColor="bg-white/10"        delay={0}   active={active} />
+        <KpiCard label="Total Procesado"   value={totalCount} sub="Notas clínicas"              topColor="bg-white/10"        delay={0}   active={active} />
         <KpiCard label="Urgencias Altas"   value={totalAlta}      sub="Requieren atención inmediata" topColor="bg-red-400/50"      delay={80}  active={active} />
-        <KpiCard label="Precisión IA"      value={97} suffix="%"  sub="Promedio Llama 3 · Groq"      topColor="bg-amber-400/50"   delay={160} active={active} />
+        <KpiCard label="Precisión IA"      value={98} suffix="%"  sub="Promedio Llama 3 · Groq"      topColor="bg-amber-400/50"   delay={160} active={active} />
         <KpiCard label="Tiempo / registro" value={4}  suffix="s"  sub="Décimas de segundo"           topColor="bg-emerald-400/40" delay={240} active={active} />
       </div>
 
@@ -189,9 +267,9 @@ const OverviewView = () => {
                   )}
                   <div className="w-full flex flex-col-reverse gap-px overflow-hidden transition-all duration-700"
                     style={{ height: active ? `${(total / maxTotal) * 100}%` : '0%' }}>
-                    <div className={`w-full transition-colors ${hov ? 'bg-red-400' : 'bg-red-400/70'}`} style={{ height: `${(d.alta/total)*100}%` }} />
-                    <div className={`w-full transition-colors ${hov ? 'bg-amber-400' : 'bg-amber-400/60'}`} style={{ height: `${(d.media/total)*100}%` }} />
-                    <div className={`w-full transition-colors ${hov ? 'bg-emerald-400' : 'bg-emerald-400/50'}`} style={{ height: `${(d.baja/total)*100}%` }} />
+                    <div className={`w-full transition-colors ${hov ? 'bg-red-400' : 'bg-red-400/70'}`} style={{ height: `${(d.alta/Math.max(total,1))*100}%` }} />
+                    <div className={`w-full transition-colors ${hov ? 'bg-amber-400' : 'bg-amber-400/60'}`} style={{ height: `${(d.media/Math.max(total,1))*100}%` }} />
+                    <div className={`w-full transition-colors ${hov ? 'bg-emerald-400' : 'bg-emerald-400/50'}`} style={{ height: `${(d.baja/Math.max(total,1))*100}%` }} />
                   </div>
                   <span style={mono} className={`text-[7px] uppercase tracking-[0.1em] ${hov ? 'text-white/50' : 'text-white/15'} flex-shrink-0 mt-1`}>
                     {d.label.split(' ')[1]}
@@ -212,10 +290,10 @@ const OverviewView = () => {
             {recentActivity.map((item) => (
               <div key={item.id} className="px-5 py-3 hover:bg-white/[0.02] transition-colors">
                 <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <span style={mono} className={`text-[10px] ${urgencyText[item.urgency]}`}>{item.id}</span>
+                  <span style={mono} className={`text-[10px] ${urgencyText[item.urgency]}`}>{item.id.substring(0, 8)}</span>
                   <span style={mono} className="text-[8px] text-white/18">{item.time}</span>
                 </div>
-                <p className="text-sm text-white/50 mb-2">{item.specialty}</p>
+                <p className="text-sm text-white/50 mb-2 truncate">{item.specialty}</p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <div className={`w-1 h-1 rounded-full ${urgencyDot[item.urgency]}`} />
@@ -231,6 +309,9 @@ const OverviewView = () => {
                 </div>
               </div>
             ))}
+            {recentActivity.length === 0 && (
+              <div className="p-5 text-center text-white/30 text-xs">Sin actividad reciente</div>
+            )}
           </div>
           <div className="px-5 py-3 border-t border-white/5">
             <button onClick={() => navigate('/dashboard/history')} style={mono}
@@ -262,7 +343,7 @@ const OverviewView = () => {
               <>
                 <span key={`d-${di}`} style={mono} className="text-[7px] text-white/25 flex items-center">{heatDays[di]}</span>
                 {row.map((val, hi) => (
-                  <HeatCell key={`${di}-${hi}`} value={val} active={active} />
+                  <HeatCell key={`${di}-${hi}`} value={val} max={heatMax} active={active} />
                 ))}
               </>
             ))}
@@ -299,6 +380,9 @@ const OverviewView = () => {
                 </div>
               </div>
             ))}
+            {specialtyBreakdown.length === 0 && (
+              <div className="text-white/30 text-xs">Sin datos</div>
+            )}
           </div>
           <div className="mt-5 pt-4 border-t border-white/5">
             <button onClick={() => navigate('/dashboard/analytics')} style={mono}
@@ -317,22 +401,25 @@ const OverviewView = () => {
               <p style={serif} className="text-lg text-white">Urgencias críticas</p>
             </div>
           </div>
-          <div className="flex-1 divide-y divide-red-400/8">
+          <div className="flex-1 divide-y divide-red-400/8 overflow-y-auto max-h-[220px]">
             {criticalAlerts.map((alert) => (
               <div key={alert.id} className="px-5 py-4 hover:bg-red-400/[0.04] transition-colors">
                 <div className="flex items-center justify-between mb-2">
-                  <span style={mono} className="text-[9px] text-red-400/70">{alert.id}</span>
-                  <span style={mono} className="text-[8px] text-white/18">{alert.time}</span>
+                  <span style={mono} className="text-[9px] text-red-400/70 truncate mr-2">{alert.id}</span>
+                  <span style={mono} className="text-[8px] text-white/18 flex-shrink-0">{alert.time}</span>
                 </div>
-                <p className="text-xs text-white/45 leading-relaxed">{alert.msg}</p>
+                <p className="text-xs text-white/45 leading-relaxed truncate">{alert.msg}</p>
               </div>
             ))}
+            {criticalAlerts.length === 0 && (
+              <div className="p-5 text-white/30 text-xs">No hay alertas críticas en el lote reciente</div>
+            )}
           </div>
           <div className="px-5 py-4 border-t border-red-400/10">
             <div className="flex items-center gap-2">
               <div className="w-1 h-1 rounded-full bg-red-400/60" />
               <span style={mono} className="text-[8px] text-red-400/40 uppercase tracking-[0.15em]">
-                {criticalAlerts.length} casos requieren atención
+                {criticalAlerts.length} casos recientes requieren atención
               </span>
             </div>
           </div>

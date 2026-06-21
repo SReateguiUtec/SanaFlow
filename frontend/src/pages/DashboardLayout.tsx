@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-
+import ChatbotCopilot from '../components/dashboard/ChatbotCopilot';
+import { api, getUser, removeToken, removeUser } from '../lib/api';
+import { wsService } from '../lib/wsService';
 const mono  = "'IBM Plex Mono', monospace";
 const serif = "'DM Serif Display', Georgia, serif";
 
@@ -87,12 +89,57 @@ const LiveClock = () => {
   return <span>{time}</span>;
 };
 
+interface TriageResult {
+  id?: string;
+  nivel_urgencia?: string;
+  especialidad_sugerida?: string;
+  nota_clinica?: string;
+  motivo_consulta?: string;
+  [key: string]: unknown;
+}
+
 const DashboardLayout = () => {
   const location  = useLocation();
   const navigate  = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [totalCompleted, setTotalCompleted] = useState(0);
+
+  const [allResults, setAllResults] = useState<TriageResult[]>([]);
+
+  useEffect(() => {
+    if (searchOpen && allResults.length === 0) {
+      api.results.get(100).then((res: { resultados?: TriageResult[] }) => setAllResults(res.resultados || [])).catch(console.error);
+    }
+  }, [searchOpen, allResults.length]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return allResults.slice(0, 5);
+    }
+    const q = searchQuery.toLowerCase();
+    const filtered = allResults.filter(r => 
+      (r.nivel_urgencia || '').toLowerCase().includes(q) ||
+      (r.id || '').toLowerCase().includes(q)
+    );
+    return filtered.slice(0, 10);
+  }, [searchQuery, allResults]);
+
+  // Initial fetch and WebSocket listener for total completed
+  useEffect(() => {
+    api.results.get()
+      .then((res: { total?: number }) => setTotalCompleted(res.total || 0))
+      .catch(console.error);
+
+    const unsub = wsService.onMessage((msg: unknown) => {
+      const payload = msg as { tipo?: string };
+      if (payload.tipo === 'RESULTADO_TRIAJE') {
+        setTotalCompleted(prev => prev + 1);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Cmd+K listener
   useEffect(() => {
@@ -181,7 +228,7 @@ const DashboardLayout = () => {
             {[
               { label: 'En cola',     val: 0,   color: 'text-white/35',    dot: 'bg-white/20'     },
               { label: 'Procesando',  val: 0,   color: 'text-amber-400/50',dot: 'bg-amber-400/50' },
-              { label: 'Completados', val: 248, color: 'text-emerald-400/60', dot: 'bg-emerald-400' },
+              { label: 'Completados', val: totalCompleted, color: 'text-emerald-400/60', dot: 'bg-emerald-400' },
               { label: 'Fallidos',    val: 0,   color: 'text-white/25',    dot: 'bg-white/10'     },
             ].map(({ label, val, color, dot }) => (
               <div key={label} className="flex items-center justify-between">
@@ -251,13 +298,19 @@ const DashboardLayout = () => {
           {/* User */}
           <div className="px-5 py-3 flex items-center gap-3">
             <div className="w-7 h-7 bg-amber-400/12 border border-amber-400/18 flex items-center justify-center flex-shrink-0">
-              <span style={{ fontFamily: mono }} className="text-[8px] text-amber-400">DR</span>
+              <span style={{ fontFamily: mono }} className="text-[8px] text-amber-400">
+                {(getUser()?.name || 'Usuario Activo').substring(0, 2).toUpperCase()}
+              </span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white/60 truncate">Dr. E. Mendoza</p>
-              <p style={{ fontFamily: mono }} className="text-[7px] text-white/22 uppercase tracking-[0.15em]">Jefe de Urgencias</p>
+              <p className="text-xs font-medium text-white/60 truncate">{getUser()?.name || 'Usuario Activo'}</p>
+              <p style={{ fontFamily: mono }} className="text-[7px] text-white/22 uppercase tracking-[0.15em]">Personal Clínico</p>
             </div>
-            <button onClick={() => navigate('/')} className="text-white/18 hover:text-red-400/60 transition-colors" title="Cerrar sesión">
+            <button 
+              onClick={() => { removeToken(); removeUser(); navigate('/'); }} 
+              className="text-white/18 hover:text-red-400/60 transition-colors" 
+              title="Cerrar sesión"
+            >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
@@ -302,7 +355,7 @@ const DashboardLayout = () => {
               </svg>
             </div>
             <div className="w-full bg-white/[0.03] group-hover:bg-white/[0.05] border border-white/10 group-hover:border-amber-400/30 text-white/40 text-xs px-9 py-2 rounded-sm transition-all duration-300">
-              Buscar DNI, síntoma, diagnóstico...
+              Buscar por ID o nivel de urgencia...
             </div>
             <div className="absolute inset-y-0 right-0 flex items-center pr-2">
               <span style={{ fontFamily: mono }} className="text-[9px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded-sm border border-white/10">⌘K</span>
@@ -330,7 +383,7 @@ const DashboardLayout = () => {
                 <input 
                   autoFocus
                   type="text"
-                  placeholder="Ej: Dolor de pecho, TRJ-042, 74829102..."
+                  placeholder="Ej: TRJ-042, Alta, Media..."
                   className="flex-1 bg-transparent border-none text-white text-lg focus:outline-none placeholder:text-white/20"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -338,43 +391,42 @@ const DashboardLayout = () => {
                 <button onClick={() => setSearchOpen(false)} style={{ fontFamily: mono }} className="text-[10px] bg-white/10 text-white/40 px-2 py-1 rounded-sm ml-3 hover:bg-white/20 transition-colors">ESC</button>
               </div>
               
-              {/* Results (Mock) */}
+              {/* Results */}
               <div className="p-2 max-h-[60vh] overflow-y-auto">
                 <div className="px-3 py-2">
                   <p style={{ fontFamily: mono }} className="text-[9px] uppercase tracking-[0.2em] text-white/20 mb-2">
-                    {searchQuery ? 'Resultados (DynamoDB Scan Mock)' : 'Búsquedas recientes'}
+                    {searchQuery ? 'Resultados de búsqueda' : 'Últimos registros'}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 px-3 py-3 rounded-sm hover:bg-white/[0.03] cursor-pointer group transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-red-400/10 flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 rounded-full bg-red-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span style={{ fontFamily: mono }} className="text-[10px] text-white group-hover:text-red-400 transition-colors">TRJ-042 • DNI: 74829102</span>
-                      <span style={{ fontFamily: mono }} className="text-[9px] text-red-400/80 uppercase tracking-widest">Alta</span>
+                {searchResults.length === 0 ? (
+                  <div className="p-4 text-center text-white/40 text-xs">No se encontraron resultados</div>
+                ) : (
+                  searchResults.map(res => (
+                    <div 
+                      key={res.id} 
+                      onClick={() => { setSearchOpen(false); navigate('/dashboard/history', { state: { selectedId: res.id } }); }} 
+                      className="flex items-center gap-3 px-3 py-3 rounded-sm hover:bg-white/[0.03] cursor-pointer group transition-colors"
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${res.nivel_urgencia === 'Alta' ? 'bg-red-400/10' : res.nivel_urgencia === 'Media' ? 'bg-amber-400/10' : 'bg-emerald-400/10'}`}>
+                        <div className={`w-2 h-2 rounded-full ${res.nivel_urgencia === 'Alta' ? 'bg-red-400' : res.nivel_urgencia === 'Media' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span style={{ fontFamily: mono }} className={`text-[10px] text-white transition-colors ${res.nivel_urgencia === 'Alta' ? 'group-hover:text-red-400' : res.nivel_urgencia === 'Media' ? 'group-hover:text-amber-400' : 'group-hover:text-emerald-400'}`}>
+                            ID: {res.id?.substring(0, 8)} {res.especialidad_sugerida ? `• ${res.especialidad_sugerida}` : ''}
+                          </span>
+                          <span style={{ fontFamily: mono }} className={`text-[9px] uppercase tracking-widest ${res.nivel_urgencia === 'Alta' ? 'text-red-400/80' : res.nivel_urgencia === 'Media' ? 'text-amber-400/80' : 'text-emerald-400/80'}`}>
+                            {res.nivel_urgencia || 'Baja'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/40 truncate">
+                          <span className="text-white/70">{res.nota_clinica || res.motivo_consulta || 'Sin nota clínica'}</span>
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-white/40 truncate">
-                      <span className="text-white/70">"Paciente varón llega sudoroso agarrándose el <strong className="text-amber-400 font-normal">pecho</strong>..."</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 px-3 py-3 rounded-sm hover:bg-white/[0.03] cursor-pointer group transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 rounded-full bg-amber-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span style={{ fontFamily: mono }} className="text-[10px] text-white group-hover:text-amber-400 transition-colors">TRJ-028 • DNI: 42918432</span>
-                      <span style={{ fontFamily: mono }} className="text-[9px] text-amber-400/80 uppercase tracking-widest">Media</span>
-                    </div>
-                    <p className="text-xs text-white/40 truncate">
-                      <span className="text-white/70">"...refiere presión en el <strong className="text-amber-400 font-normal">pecho</strong> al toser, fiebre leve..."</span>
-                    </p>
-                  </div>
-                </div>
+                  ))
+                )}
               </div>
 
               {/* Footer */}
@@ -400,6 +452,7 @@ const DashboardLayout = () => {
           <div className="relative z-10 p-6 md:p-8 max-w-6xl mx-auto">
             <Outlet />
           </div>
+          <ChatbotCopilot />
         </main>
       </div>
     </div>

@@ -23,6 +23,9 @@ const LoginPage = () => {
       const data = await api.auth.login(form);
       if (data.token) {
         setToken(data.token);
+        if (data.user) {
+          localStorage.setItem('sanaflow_user', JSON.stringify(data.user));
+        }
         navigate('/dashboard');
       }
     } catch (err: unknown) {

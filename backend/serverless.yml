@@ -57,6 +57,14 @@ functions:
           path: /upload
           method: post
 
+  # ─── Chatbot Copilot ──────────────────────────────────────────────────────
+  chatCopilot:
+    handler: src/chat_handler.handler
+    events:
+      - httpApi:
+          path: /chat
+          method: post
+
   # ─── Consultar resultados ─────────────────────────────────────────────────
   getResults:
     handler: src/get_results.handler

@@ -37,9 +37,11 @@ const LiquidBackground = () => {
             vec2 m = uMouse * 0.08;
             float wave = (sin(uv.x * 6.0 + t + m.x * 10.0) + sin(uv.y * 5.0 - t * 0.8 + m.y * 10.0)) * 0.5 + 0.5;
             float warm = smoothstep(0.0, 1.0, wave);
-            vec3 cold = vec3(0.008, 0.008, 0.012);
-            vec3 warmTone = vec3(0.055, 0.038, 0.015);
-            gl_FragColor = vec4(mix(cold, warmTone, warm * 0.6), 1.0);
+            
+            // Un glow muy sutil, apenas un poquito más brillante que el original
+            vec3 cold = vec3(0.01, 0.01, 0.015);
+            vec3 warmTone = vec3(0.08, 0.06, 0.02);
+            gl_FragColor = vec4(mix(cold, warmTone, warm * 0.8), 1.0);
           }
         `}
             />
@@ -49,19 +51,15 @@ const LiquidBackground = () => {
 
 const Monolith = () => {
     const meshRef = useRef<THREE.Mesh>(null);
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
     useFrame((state) => {
         if (meshRef.current) {
-            meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.18;
-            meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime() * 0.3) * 0.08;
+            meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.25;
         }
     });
-    
     return (
-        <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.8}>
-            <mesh ref={meshRef} scale={isMobile ? 0.5 : 1}>
-                <icosahedronGeometry args={[12, 1]} />
+        <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
+            <mesh ref={meshRef}>
+                <icosahedronGeometry args={[13, 1]} />
                 <MeshDistortMaterial color="#0a0a0a" speed={4} distort={0.4} roughness={0.05} metalness={1.0} />
             </mesh>
         </Float>
@@ -109,9 +107,8 @@ export const Component = () => {
             {/* Three.js Canvas */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <Canvas camera={{ position: [0, 0, 60], fov: 35 }}>
-                    <ambientLight intensity={0.3} />
-                    <spotLight position={[40, 60, 40]} intensity={2} color="#d6a85a" />
-                    <spotLight position={[-40, -20, 30]} intensity={0.8} color="#ffffff" />
+                    <ambientLight intensity={0.4} />
+                    <spotLight position={[50, 50, 50]} intensity={3} />
                     <LiquidBackground />
                     <Monolith />
                 </Canvas>

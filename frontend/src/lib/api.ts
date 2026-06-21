@@ -4,6 +4,13 @@ export const getToken = () => localStorage.getItem('sanaflow_token');
 export const setToken = (token: string) => localStorage.setItem('sanaflow_token', token);
 export const removeToken = () => localStorage.removeItem('sanaflow_token');
 
+export const getUser = () => {
+  const u = localStorage.getItem('sanaflow_user');
+  return u ? JSON.parse(u) : null;
+};
+export const setUser = (user: { name?: string; email?: string }) => localStorage.setItem('sanaflow_user', JSON.stringify(user));
+export const removeUser = () => localStorage.removeItem('sanaflow_user');
+
 export const authFetch = async (endpoint: string, options: RequestInit = {}) => {
   const token = getToken();
   const headers = {

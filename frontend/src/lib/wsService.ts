@@ -1,3 +1,5 @@
+import toast from 'react-hot-toast';
+
 const WS_URL = import.meta.env.VITE_WS_URL;
 
 export type WsMessageCallback = (data: unknown) => void;
@@ -16,6 +18,23 @@ class WebSocketService {
     this.ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        
+        // Trigger global toast if the message is a HIGH urgency result
+        if (message?.tipo === 'RESULTADO_TRIAJE' && message?.data?.nivel_urgencia === 'Alta') {
+          toast.error('¡Alerta! Nuevo paciente requiere atención inmediata (Urgencia Alta)', {
+            style: {
+              borderRadius: '4px',
+              background: '#0d0b09',
+              color: '#f87171',
+              border: '1px solid rgba(248, 113, 113, 0.4)',
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '12px'
+            },
+            icon: '🚨',
+            duration: 6000
+          });
+        }
+
         this.callbacks.forEach(cb => cb(message));
       } catch (err) {
         console.error('Error parsing WS message', err);

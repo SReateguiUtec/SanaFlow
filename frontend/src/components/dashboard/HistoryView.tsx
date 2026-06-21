@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { wsService } from '../../lib/wsService';
 
@@ -32,12 +33,23 @@ const HistoryView = () => {
   const [search, setSearch]       = useState('');
   const [expanded, setExpanded]   = useState<string | null>(null);
 
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.selectedId) {
+      setTimeout(() => {
+        setSearch(location.state.selectedId);
+        setExpanded(location.state.selectedId);
+      }, 0);
+    }
+  }, [location.state]);
+
   const loadData = useCallback(async (isLoadMore: boolean = false, currentLastKey?: string | null) => {
     try {
       if (isLoadMore) setLoadingMore(true);
       else setLoading(true);
 
-      const data = await api.results.get(10, isLoadMore && currentLastKey ? currentLastKey : undefined);
+      const data = await api.results.get(100, isLoadMore && currentLastKey ? currentLastKey : undefined);
       interface RawTriageRecord {
         id?: string;
         procesado_en?: number;
@@ -120,7 +132,12 @@ const HistoryView = () => {
 
   const filtered = results
     .filter(r => filter === 'Todos' || r.urgency === filter)
-    .filter(r => !search || r.symptoms.toLowerCase().includes(search.toLowerCase()) || r.specialty.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase()));
+    .filter(r => {
+      if (!search) return true;
+      const q = String(search).toLowerCase();
+      return String(r.urgency || '').toLowerCase().includes(q) || 
+             String(r.id || '').toLowerCase().includes(q);
+    });
 
   const alta = results.filter(r => r.urgency === 'Alta').length;
   const media = results.filter(r => r.urgency === 'Media').length;
@@ -200,6 +217,34 @@ const HistoryView = () => {
             </button>
           ))}
         </div>
+
+        {/* Export Button */}
+        <button
+          onClick={() => {
+            const headers = ['ID', 'Sintomas', 'Especialidad Sugerida', 'Nivel de Urgencia', 'Fecha', 'Hora'];
+            const csvContent = [
+              headers.join(','),
+              ...filtered.map(r => 
+                [r.id, `"${r.symptoms.replace(/"/g, '""')}"`, `"${r.specialty}"`, r.urgency, r.date, r.time].join(',')
+              )
+            ].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `sanaflow-triaje-${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
+          style={mono}
+          className="ml-auto flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] px-4 py-2 border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-white"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Exportar CSV
+        </button>
       </div>
 
       {/* Table */}

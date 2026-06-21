@@ -46,7 +46,6 @@ const Navbar = () => {
             }
           }}
         >
-          <img src="/favicon.svg" alt="SanaFlow Icon" className="w-6 h-6" />
           <span className="font-serif text-white text-lg tracking-tight">SanaFlow</span>
         </div>
 

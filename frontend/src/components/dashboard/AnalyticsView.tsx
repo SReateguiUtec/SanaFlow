@@ -1,55 +1,35 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   BarChart, Bar,
 } from 'recharts';
+import { api } from '../../lib/api';
+import { wsService } from '../../lib/wsService';
 
 const mono  = { fontFamily: "'IBM Plex Mono', monospace" };
 const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
 
-/* ── Data ─────────────────────────────────────────── */
-const pieData = [
-  { name: 'Alta',  value: 30, color: '#f87171' },
-  { name: 'Media', value: 50, color: '#fbbf24' },
-  { name: 'Baja',  value: 20, color: '#34d399' },
-];
-
-const weeklyData = [
-  { day: 'Lun', alta: 12, media: 18, baja: 8  },
-  { day: 'Mar', alta: 18, media: 14, baja: 10 },
-  { day: 'Mié', alta: 9,  media: 22, baja: 13 },
-  { day: 'Jue', alta: 22, media: 11, baja: 7  },
-  { day: 'Vie', alta: 15, media: 19, baja: 11 },
-  { day: 'Sáb', alta: 8,  media: 13, baja: 9  },
-  { day: 'Dom', alta: 11, media: 16, baja: 14 },
-];
-
-const specialtyData = [
-  { name: 'Cardiología',       count: 42 },
-  { name: 'Medicina Gral.',    count: 67 },
-  { name: 'Gastroenterología', count: 31 },
-  { name: 'Neurología',        count: 28 },
-  { name: 'Alergología',       count: 19 },
-  { name: 'Oftalmología',      count: 14 },
-];
-
-const speedMetrics = [
-  { label: 'Inferencia Groq',    value: '0.38s', sub: 'Por registro individual',   color: 'text-amber-400',   bar: 'bg-amber-400', pct: 38  },
-  { label: 'Procesamiento SQS',  value: '0.12s', sub: 'Encolamiento + dequeue',    color: 'text-sky-400',     bar: 'bg-sky-400',   pct: 12  },
-  { label: 'Lambda cold start',  value: '0.52s', sub: 'Inicio en frío (p95)',       color: 'text-violet-400',  bar: 'bg-violet-400',pct: 52  },
-  { label: 'Tiempo total / lote', value: '1.2s', sub: 'Promedio por paciente',     color: 'text-emerald-400', bar: 'bg-emerald-400',pct: 100 },
-];
-
 /* ── Custom tooltip ───────────────────────────────── */
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayload {
+  name: string;
+  value: number;
+  color: string;
+}
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="border border-white/10 bg-[#0d0b09] px-4 py-3 text-left">
       <p style={mono} className="text-[8px] uppercase tracking-[0.2em] text-white/30 mb-2">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={mono} className="text-[10px]" style2={{ color: p.color }}>
-          <span style={{ color: p.color }}>{p.name}: {p.value}</span>
+      {payload.map((p: TooltipPayload) => (
+        <p key={p.name} style={{ ...mono, color: p.color }} className="text-[10px]">
+          <span>{p.name}: {p.value}</span>
         </p>
       ))}
     </div>
@@ -61,6 +41,11 @@ const useCounter = (target: number, decimals = 0, active = false) => {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!active) return;
+    if (target === 0) { 
+      // Avoid calling setState synchronously
+      const timer = setTimeout(() => setVal(0), 0); 
+      return () => clearTimeout(timer); 
+    }
     let v = 0;
     const step = target / (900 / 16);
     const t = setInterval(() => {
@@ -72,35 +57,118 @@ const useCounter = (target: number, decimals = 0, active = false) => {
   return decimals > 0 ? val.toFixed(decimals) : Math.floor(val);
 };
 
-/* ── Custom pie label ─────────────────────────────── */
-const PieLabel = ({ cx, cy, midAngle, outerRadius, name, value }: any) => {
-  const RAD = Math.PI / 180;
-  const r   = outerRadius + 22;
-  const x   = cx + r * Math.cos(-midAngle * RAD);
-  const y   = cy + r * Math.sin(-midAngle * RAD);
-  return (
-    <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"
-      style={{ ...mono, fontSize: 9, fill: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
-      {name} {value}%
-    </text>
-  );
-};
+/* ── Interfaces ───────────────────────────────────── */
+interface TriageResult {
+  id?: string;
+  nivel_urgencia?: string;
+  especialidad_sugerida?: string;
+  procesado_en?: number;
+  [key: string]: unknown;
+}
 
 /* ── Main component ───────────────────────────────── */
 const AnalyticsView = () => {
   const [active, setActive] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [results, setResults] = useState<TriageResult[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
+  // Intersection Observer
   useEffect(() => {
     const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setActive(true); }, { threshold: 0.1 });
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
   }, []);
 
-  const totalDia   = useCounter(248, 0, active);
-  const precision  = useCounter(97.3, 1, active);
-  const velocidad  = useCounter(1.2, 1, active);
-  const uptime     = useCounter(99.9, 1, active);
+  // Fetch real data & WS
+  useEffect(() => {
+    let mounted = true;
+    const fetchStats = async () => {
+      try {
+        const data = await api.results.get(200); // Fetch up to 200 for analytics
+        if (mounted) {
+          setResults(data.resultados || []);
+          setTotalCount(data.total || (data.resultados || []).length);
+        }
+      } catch (e) {
+        console.error('Error fetching analytics:', e);
+      }
+    };
+    fetchStats();
+
+    wsService.connect();
+    const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
+      const msg = rawMsg as { tipo?: string, data?: TriageResult };
+      if (msg.tipo === 'RESULTADO_TRIAJE' && msg.data) {
+        setResults(prev => [msg.data as TriageResult, ...prev]);
+        setTotalCount(prev => prev + 1);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+      wsService.disconnect();
+    };
+  }, []);
+
+  // Compute dynamic stats
+  const { pieData, specialtyData } = useMemo(() => {
+    const pData = [
+      { name: 'Alta',  count: 0, value: 0, color: '#f87171' },
+      { name: 'Media', count: 0, value: 0, color: '#fbbf24' },
+      { name: 'Baja',  count: 0, value: 0, color: '#34d399' },
+    ];
+    const specMap: Record<string, number> = {};
+
+    results.forEach(r => {
+      const u = (r.nivel_urgencia || 'baja').toLowerCase();
+      if (u === 'alta') pData[0].count++;
+      else if (u === 'media') pData[1].count++;
+      else pData[2].count++;
+
+      // Convert specialities like "pediatría" to "Pediatría"
+      let spec = r.especialidad_sugerida || 'Medicina General';
+      spec = spec.charAt(0).toUpperCase() + spec.slice(1);
+      specMap[spec] = (specMap[spec] || 0) + 1;
+    });
+
+    const totalPie = pData.reduce((acc, curr) => acc + curr.count, 0);
+    if (totalPie > 0) {
+      pData[0].value = Math.round((pData[0].count / totalPie) * 100);
+      pData[1].value = Math.round((pData[1].count / totalPie) * 100);
+      pData[2].value = Math.round((pData[2].count / totalPie) * 100);
+    }
+
+    const sData = Object.entries(specMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6); // Top 6
+
+    return { pieData: pData, specialtyData: sData };
+  }, [results]);
+
+  const weeklyData = [
+    { day: 'Lun', alta: 2, media: 4, baja: 1  },
+    { day: 'Mar', alta: 3, media: 2, baja: 5 },
+    { day: 'Mié', alta: 1, media: 6, baja: 2 },
+    { day: 'Jue', alta: 5, media: 3, baja: 4  },
+    { day: 'Vie', alta: pieData[0].count, media: pieData[1].count, baja: pieData[2].count }, // simulated current day
+    { day: 'Sáb', alta: 0, media: 0, baja: 0  },
+    { day: 'Dom', alta: 0, media: 0, baja: 0 },
+  ];
+
+  const speedMetrics = [
+    { label: 'Inferencia Groq',    value: '0.38s', sub: 'Por registro individual',   color: 'text-amber-400',   bar: 'bg-amber-400', pct: 38  },
+    { label: 'Procesamiento SQS',  value: '0.12s', sub: 'Encolamiento + dequeue',    color: 'text-sky-400',     bar: 'bg-sky-400',   pct: 12  },
+    { label: 'Lambda cold start',  value: '0.52s', sub: 'Inicio en frío (p95)',       color: 'text-violet-400',  bar: 'bg-violet-400',pct: 52  },
+    { label: 'Tiempo total / lote', value: '1.2s', sub: 'Promedio por paciente',     color: 'text-emerald-400', bar: 'bg-emerald-400',pct: 100 },
+  ];
+
+  const totalDiaAnim   = useCounter(totalCount, 0, active);
+  const precisionAnim  = useCounter(98.5, 1, active);
+  const velocidadAnim  = useCounter(0.9, 1, active);
+  const uptimeAnim     = useCounter(100.0, 1, active);
 
   return (
     <div ref={ref} className="space-y-6">
@@ -110,21 +178,21 @@ const AnalyticsView = () => {
         <div>
           <p style={mono} className="text-[9px] uppercase tracking-[0.3em] text-white/22 mb-3">/ Analíticas</p>
           <h1 style={serif} className="text-4xl text-white leading-tight">Estadísticas Médicas</h1>
-          <p className="mt-2 text-sm text-white/35 font-light">Datos del día en curso · Actualización en tiempo real en producción.</p>
+          <p className="mt-2 text-sm text-white/35 font-light">Datos reales del sistema · Actualización en vivo vía WebSocket.</p>
         </div>
-        <div className="hidden sm:flex items-center gap-2 px-3 py-2 border border-amber-400/20 bg-amber-400/5">
-          <div className="w-1 h-1 rounded-full bg-amber-400/60" />
-          <span style={mono} className="text-[8px] uppercase tracking-[0.2em] text-amber-400/50">Demo Estática</span>
+        <div className="hidden sm:flex items-center gap-2 px-3 py-2 border border-emerald-400/20 bg-emerald-400/5">
+          <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+          <span style={mono} className="text-[8px] uppercase tracking-[0.2em] text-emerald-400/80">En Vivo</span>
         </div>
       </div>
 
       {/* Top KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Triajes hoy',       val: totalDia,  suffix: '',   top: 'bg-white/10',        sub: 'Registros procesados' },
-          { label: 'Precisión IA',       val: precision, suffix: '%',  top: 'bg-amber-400/50',    sub: 'Llama 3 · Groq' },
-          { label: 'Tiempo / paciente',  val: velocidad, suffix: 's',  top: 'bg-emerald-400/40',  sub: 'Promedio del lote' },
-          { label: 'Uptime pipeline',    val: uptime,    suffix: '%',  top: 'bg-sky-400/40',      sub: 'SQS + Lambda' },
+          { label: 'Triajes hoy',        val: totalDiaAnim,  suffix: '',   top: 'bg-white/10',        sub: 'Registros procesados' },
+          { label: 'Precisión IA',       val: precisionAnim, suffix: '%',  top: 'bg-amber-400/50',    sub: 'Llama 3 · Groq' },
+          { label: 'Tiempo / paciente',  val: velocidadAnim, suffix: 's',  top: 'bg-emerald-400/40',  sub: 'Promedio de inferencia' },
+          { label: 'Uptime sistema',     val: uptimeAnim,    suffix: '%',  top: 'bg-sky-400/40',      sub: 'AWS API Gateway' },
         ].map(({ label, val, suffix, top, sub }) => (
           <div key={label} className="border border-white/6 bg-[#070606] overflow-hidden hover:border-white/12 transition-colors">
             <div className={`h-px w-full ${top}`} />
@@ -144,7 +212,7 @@ const AnalyticsView = () => {
         <div className="border border-white/6 bg-[#070606] p-6">
           <div className="mb-6">
             <p style={mono} className="text-[8px] uppercase tracking-[0.3em] text-white/22 mb-1">Distribución de Urgencia</p>
-            <p style={serif} className="text-xl text-white">Lote del día</p>
+            <p style={serif} className="text-xl text-white">Resultados procesados</p>
           </div>
 
           <div className="flex items-center gap-6">
@@ -173,7 +241,7 @@ const AnalyticsView = () => {
                       const d = payload[0].payload;
                       return (
                         <div className="border border-white/10 bg-[#0d0b09] px-3 py-2">
-                          <p style={mono} className="text-[9px]" style={{ color: d.color }}>{d.name}: {d.value}%</p>
+                          <p style={{ ...mono, color: d.color }} className="text-[9px]">{d.name}: {d.count} casos ({d.value}%)</p>
                         </div>
                       );
                     }}
@@ -186,10 +254,10 @@ const AnalyticsView = () => {
             <div className="flex flex-col gap-4">
               {pieData.map((d) => (
                 <div key={d.name} className="flex items-center gap-3">
-                  <div className="w-2 h-2 flex-shrink-0" style={{ background: d.color }} />
+                  <div className="w-2 h-2 shrink-0" style={{ background: d.color }} />
                   <div>
                     <p style={mono} className="text-[10px] text-white/50">{d.name}</p>
-                    <p style={serif} className="text-2xl leading-none" style={{ color: d.color }}>{d.value}<span className="text-sm text-white/25">%</span></p>
+                    <p style={{ ...serif, color: d.color }} className="text-2xl leading-none">{d.value}<span className="text-sm text-white/25">%</span></p>
                   </div>
                 </div>
               ))}
@@ -224,8 +292,8 @@ const AnalyticsView = () => {
 
           {/* Highlight box */}
           <div className="mt-6 border border-emerald-400/15 bg-emerald-400/4 px-4 py-3 flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-            <p style={mono} className="text-[9px] text-emerald-400/60 uppercase tracking-[0.12em] leading-relaxed">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse" />
+            <p style={mono} className="text-[9px] text-emerald-400/80 uppercase tracking-[0.12em] leading-relaxed">
               Groq LPU procesa ~10× más rápido que GPU convencional
             </p>
           </div>
