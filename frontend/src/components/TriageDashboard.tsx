@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../lib/api';
 import { wsService } from '../lib/wsService';
 
 type TriageResult = {
@@ -50,6 +49,13 @@ const KpiCard = ({ label, value, sub, accent, active }: { label: string; value: 
   );
 };
 
+const demoData: TriageResult[] = [
+  { id: 'd1', note: 'Paciente varón de 55 años presenta dolor opresivo en el pecho irradiado al brazo izquierdo, diaforesis y dificultad para respirar de 30 minutos de evolución.', symptoms: 'Dolor Pecho', urgency: 'Alta', specialty: 'Cardiología', status: 'Completado', confidence: 98, time: '0.4s' },
+  { id: 'd2', note: 'Mujer de 45 años con dolor abdominal intenso en cuadrante inferior derecho, acompañado de náuseas y vómitos. Refiere que el dolor empezó hace 6 horas.', symptoms: 'Dolor Abdominal', urgency: 'Media', specialty: 'Cirugía General', status: 'Completado', confidence: 95, time: '0.3s' },
+  { id: 'd3', note: 'Paciente de 25 años acude para solicitar renovación de receta para su tratamiento de asma, actualmente sin crisis.', symptoms: 'Renovación Receta', urgency: 'Baja', specialty: 'Medicina General', status: 'Completado', confidence: 99, time: '0.2s' },
+  { id: 'd4', note: 'Paciente de 72 años traído por familiares por desviación de la comisura labial, dificultad para hablar y debilidad en el lado derecho del cuerpo de inicio súbito.', symptoms: 'Debilidad, Afasia', urgency: 'Alta', specialty: 'Neurología', status: 'Completado', confidence: 96, time: '0.5s' }
+];
+
 const TriageDashboard = () => {
   const [isDragging, setIsDragging]   = useState(false);
   const [results, setResults]         = useState<TriageResult[]>([]);
@@ -67,28 +73,6 @@ const TriageDashboard = () => {
   }, []);
 
   useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        const data = await api.results.get();
-        if (Array.isArray(data.items)) {
-          const mapped = data.items.map((r: Record<string, unknown>) => ({
-            id: r.id as string,
-            note: (r.nota_original as string) || '',
-            symptoms: (r.sintomas_principales as string) || '',
-            urgency: (r.nivel_urgencia as 'Alta' | 'Media' | 'Baja') || 'Media',
-            specialty: (r.especialidad_sugerida as string) || '',
-            status: r.estado === 'COMPLETADO' ? 'Completado' : 'Procesando',
-            confidence: 90 + Math.floor(Math.random() * 9),
-            time: '0.4s'
-          }));
-          setResults(mapped);
-        }
-      } catch (err) {
-        console.error('Error fetching results:', err);
-      }
-    };
-    fetchResults();
-
     wsService.connect();
     const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
       const msg = rawMsg as { tipo?: string, data?: Record<string, unknown> };
@@ -194,7 +178,23 @@ const TriageDashboard = () => {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={() => {}}
+            onClick={() => {
+              if (isProcessing) return;
+              setIsProcessing(true);
+              setResults([]);
+              setPipelineStep(0);
+              let step = 0;
+              const interval = setInterval(() => {
+                step++;
+                setPipelineStep(step);
+                if (step >= pipelineStages.length) {
+                  clearInterval(interval);
+                  setIsProcessing(false);
+                  setResults(demoData);
+                  setPipelineStep(-1);
+                }
+              }, 500);
+            }}
           >
             {/* Corner accents */}
             {['top-0 left-0', 'top-0 right-0 rotate-90', 'bottom-0 right-0 rotate-180', 'bottom-0 left-0 -rotate-90'].map((pos, i) => (
