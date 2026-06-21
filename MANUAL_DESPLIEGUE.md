@@ -43,27 +43,19 @@ El backend creará automáticamente las bases de datos (DynamoDB), colas (SQS) y
    ```
 > **IMPORTANTE:** Al finalizar, copia las rutas `HttpApiUrl` (empieza con https://) y el de WebSockets (`wss://`) que aparecerán en color verde en la terminal.
 
-## Paso 4: Despliegue del Frontend
-1. Regresa a la carpeta principal y entra al frontend:
-   ```bash
-   cd ../frontend
-   ```
-2. Configura las APIs del backend abriendo el archivo de configuración:
-   ```bash
-   nano src/lib/api.ts
-   # Reemplaza la URL con tu HttpApiUrl
-   ```
-   *(Haz lo mismo para `src/lib/wsService.ts` con la URL de wss://)*
+## Paso 4: Despliegue del Frontend (AWS Amplify)
+AWS Amplify tiene soporte nativo para proyectos Monorepo, por lo que puedes desplegar el frontend directamente desde este mismo repositorio sin tener que separarlo.
 
-3. Instala las dependencias y arranca la aplicación. 
-   > **Ojo:** En nuestro archivo `MV-Simple.yaml` dejamos abierto el **puerto 8000** y el puerto 80. Usaremos el puerto 8000 para correr Vite y hacerlo público a internet.
-   ```bash
-   npm install
-   npm run dev -- --port 8000 --host 0.0.0.0
-   ```
+1. Ve a la consola de **AWS Amplify** en tu cuenta de AWS.
+2. Selecciona **"Create app"** y luego elige GitHub (o donde tengas alojado tu código).
+3. Selecciona tu repositorio `SanaFlow` y la rama `main`.
+4. **Configuración del Monorepo:** En la parte inferior, marca la casilla que dice *"Connecting a monorepo? Pick a folder"* y escribe **`frontend`** como el directorio raíz.
+5. **Variables de Entorno:** Despliega "Advanced Settings" y añade las dos variables que obtuviste en el Paso 3:
+   - `VITE_API_URL` con tu enlace `https://...`
+   - `VITE_WS_URL` con tu enlace `wss://...`
+6. Dale a **Save and Deploy**. Amplify detectará automáticamente que es un proyecto Vite/React, lo construirá y te dará una URL pública.
 
 ## Paso 5: Acceso Público
-Abre tu navegador de internet y escribe la IP Pública de tu máquina virtual seguida del puerto 8000:
-`http://TU_IP_PUBLICA:8000`
+Ingresa a la URL `.amplifyapp.com` que te generó AWS Amplify.
 
-¡Listo! Tu plataforma SanaFlow está completamente operativa. Puedes registrarte, cargar tus archivos `.csv` o pegar notas clínicas, y verás cómo el sistema interactúa en tiempo real entre la Máquina Virtual, SQS, los LLMs y AWS Lambda.
+¡Listo! Tu plataforma SanaFlow está completamente operativa. Puedes registrarte, cargar el archivo `pacientes_presentacion.csv`, y verás cómo el sistema interactúa en tiempo real entre AWS Amplify (Frontend), SQS, los LLMs y AWS Lambda.
