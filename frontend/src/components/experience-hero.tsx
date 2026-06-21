@@ -39,10 +39,10 @@ const LiquidBackground = () => {
             float wave = (sin(uv.x * 6.0 + t + m.x * 10.0) + sin(uv.y * 5.0 - t * 0.8 + m.y * 10.0)) * 0.5 + 0.5;
             float warm = smoothstep(0.0, 1.0, wave);
             
-            // Un glow muy sutil, apenas un poquito más brillante que el original
+            // Un glow moderado, punto medio para Mac y LCD
             vec3 cold = vec3(0.01, 0.01, 0.015);
-            vec3 warmTone = vec3(0.08, 0.06, 0.02);
-            gl_FragColor = vec4(mix(cold, warmTone, warm * 0.8), 1.0);
+            vec3 warmTone = vec3(0.05, 0.04, 0.012);
+            gl_FragColor = vec4(mix(cold, warmTone, warm * 0.55), 1.0);
           }
         `}
             />
@@ -147,19 +147,20 @@ export const Component = () => {
                         </div>
                     </div>
 
-                    {/* Loader — above the title (Fixed padding) */}
-                    {/* El scale reduce lo visual, pero el contenedor original seguía midiendo 320px. Usamos margen negativo para matar ese espacio vacío. */}
-                    <div className="hidden md:flex justify-center md:justify-start -mt-20 -mb-24 md:-mt-28 md:-mb-28 relative z-0 pointer-events-none">
-                        <Loader />
-                    </div>
-
                     {/* Headline */}
                     <div className="max-w-xl pr-8 relative z-10">
                         <h1 className="font-serif text-[clamp(3.2rem,9vw,10.5rem)] leading-[0.88] tracking-tight text-white">
                             SANA<br />
                             <span className="text-outline italic">FLOW</span>
                         </h1>
-                        <div className="mt-6 flex items-start gap-6">
+
+                        {/* Loader — between title and text */}
+                        {/* Ajustamos el top margin (-mt) para que no se superponga al título */}
+                        <div className="hidden md:flex justify-start -mt-10 -mb-20 md:-mt-12 md:-mb-28 relative z-0 pointer-events-none">
+                            <Loader />
+                        </div>
+
+                        <div className="mt-6 flex items-start gap-6 relative z-10">
                             <div className="w-10 h-px bg-amber-400/40 mt-3 shrink-0" />
                             <p className="font-mono-custom text-[11px] text-white/35 uppercase tracking-[0.3em] leading-relaxed max-w-xs">
                                 Priorización clínica potenciada por Inteligencia Artificial y Arquitecturas Serverless.

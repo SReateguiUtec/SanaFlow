@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const Loader = () => {
     const loaderCss = `
@@ -134,7 +134,7 @@ const Loader = () => {
     const boxes = [...Array(8).keys()];
 
     return (
-        <div className="relative flex items-center justify-center scale-75 md:scale-50 origin-left md:origin-center">
+        <div className="relative flex items-center justify-center scale-75 md:scale-50 origin-left md:origin-center opacity-60">
             <style>{loaderCss}</style>
             <div className="loader">
                 {boxes.map(i => (
