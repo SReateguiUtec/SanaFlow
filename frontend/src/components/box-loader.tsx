@@ -150,4 +150,131 @@ const Loader = () => {
     );
 };
 
+export const MobileLoader = () => {
+    // Reusing the same CSS strings internally
+    const loaderCss = `
+    .mobile-loader {
+      --duration: 3s;
+      --primary: #fbbf24;
+      --primary-light: #fcd34d;
+      --primary-rgba: rgba(251, 191, 36, 0);
+      width: 200px;
+      height: 320px;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    .mobile-loader .ground {
+      position: absolute;
+      left: -50px;
+      bottom: -120px;
+      transform-style: preserve-3d;
+      transform: rotateY(-47deg) rotateX(-15deg) rotateZ(15deg) scale(1);
+    }
+    .mobile-loader .ground div {
+      transform: rotateX(90deg) rotateY(0deg) translate(-48px, -120px) translateZ(100px) scale(0);
+      width: 200px;
+      height: 200px;
+      background: var(--primary);
+      background: linear-gradient(45deg, var(--primary) 0%, var(--primary) 50%, var(--primary-light) 50%, var(--primary-light) 100%);
+      transform-style: preserve-3d;
+      animation: ground var(--duration) linear forwards infinite;
+    }
+    .mobile-loader .ground div:before, .mobile-loader .ground div:after {
+      --rx: 90deg;
+      --ry: 0deg;
+      --x: 44px;
+      --y: 162px;
+      --z: -50px;
+      content: "";
+      width: 156px;
+      height: 300px;
+      opacity: 0;
+      background: linear-gradient(var(--primary), var(--primary-rgba));
+      position: absolute;
+      transform: rotateX(var(--rx)) rotateY(var(--ry)) translate(var(--x), var(--y)) translateZ(var(--z));
+      animation: ground-shine var(--duration) linear forwards infinite;
+    }
+    .mobile-loader .ground div:after {
+      --rx: 90deg;
+      --ry: 90deg;
+      --x: 0;
+      --y: 177px;
+      --z: 150px;
+    }
+    .mobile-loader .box {
+      --x: 0;
+      --y: 0;
+      position: absolute;
+      animation: var(--duration) linear forwards infinite, box-fade var(--duration) linear forwards infinite;
+      transform: translate(var(--x), var(--y));
+    }
+    .mobile-loader .box div {
+      background: var(--primary);
+      width: 48px;
+      height: 48px;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: var(--duration) ease forwards infinite;
+      transform: rotateY(-47deg) rotateX(-15deg) rotateZ(15deg) scale(0);
+    }
+    .mobile-loader .box div:before, .mobile-loader .box div:after {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: var(--primary-light);
+      top: auto;
+      right: auto;
+      bottom: auto;
+      left: auto;
+    }
+    .mobile-loader .box div:before {
+      bottom: 100%;
+      left: 0;
+      transform-origin: bottom;
+      transform: rotateX(90deg);
+    }
+    .mobile-loader .box div:after {
+      top: 0;
+      left: 100%;
+      transform-origin: left;
+      transform: rotateY(90deg);
+    }
+    .mobile-loader .box.box0 { --x: -220px; --y: -120px; left: 58px; top: 108px; animation-name: box-move0, box-fade; }
+    .mobile-loader .box.box0 div { animation-name: box-scale0; }
+    .mobile-loader .box.box1 { --x: -260px; --y: 120px; left: 25px; top: 120px; animation-name: box-move1, box-fade; }
+    .mobile-loader .box.box1 div { animation-name: box-scale1; }
+    .mobile-loader .box.box2 { --x: 120px; --y: -190px; left: 58px; top: 64px; animation-name: box-move2, box-fade; }
+    .mobile-loader .box.box2 div { animation-name: box-scale2; }
+    .mobile-loader .box.box3 { --x: 280px; --y: -40px; left: 91px; top: 120px; animation-name: box-move3, box-fade; }
+    .mobile-loader .box.box3 div { animation-name: box-scale3; }
+    .mobile-loader .box.box4 { --x: 60px; --y: 200px; left: 58px; top: 132px; animation-name: box-move4, box-fade; }
+    .mobile-loader .box.box4 div { animation-name: box-scale4; }
+    .mobile-loader .box.box5 { --x: -220px; --y: -120px; left: 25px; top: 76px; animation-name: box-move5, box-fade; }
+    .mobile-loader .box.box5 div { animation-name: box-scale5; }
+    .mobile-loader .box.box6 { --x: -260px; --y: 120px; left: 91px; top: 76px; animation-name: box-move6, box-fade; }
+    .mobile-loader .box.box6 div { animation-name: box-scale6; }
+    .mobile-loader .box.box7 { --x: -240px; --y: 200px; left: 58px; top: 87px; animation-name: box-move7, box-fade; }
+    .mobile-loader .box.box7 div { animation-name: box-scale7; }
+  `;
+
+    const boxes = [...Array(8).keys()];
+
+    return (
+        <div className="relative flex items-center justify-center scale-[0.35] origin-left opacity-80">
+            <style>{loaderCss}</style>
+            <div className="mobile-loader">
+                {boxes.map(i => (
+                    <div key={i} className={`box box${i}`}>
+                        <div></div>
+                    </div>
+                ))}
+                <div className="ground">
+                    <div></div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default Loader;

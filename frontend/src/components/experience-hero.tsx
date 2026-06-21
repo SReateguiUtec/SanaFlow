@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import Navbar from './Navbar';
 import DashboardLayout from '../pages/DashboardLayout';
-import Loader from './box-loader';
+import Loader, { MobileLoader } from './box-loader';
 
 const LiquidBackground = () => {
     const meshRef = useRef<THREE.Mesh>(null);
@@ -154,10 +154,14 @@ export const Component = () => {
                             <span className="text-outline italic">FLOW</span>
                         </h1>
 
-                        {/* Loader — between title and text */}
-                        {/* Ajustamos el top margin (-mt) para que no se superponga al título */}
+                        {/* Desktop Loader — hidden on mobile */}
                         <div className="hidden md:flex justify-start -mt-10 -mb-20 md:-mt-12 md:-mb-28 relative z-0 pointer-events-none">
                             <Loader />
+                        </div>
+                        
+                        {/* Mobile Loader — hidden on desktop, entirely separated to not affect each other */}
+                        <div className="flex md:hidden justify-center -mt-16 -mb-28 relative z-0 pointer-events-none">
+                            <MobileLoader />
                         </div>
 
                         <div className="mt-6 flex items-start gap-6 relative z-10">
