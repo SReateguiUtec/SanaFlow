@@ -38,7 +38,7 @@ export const api = {
     register: (userData: Record<string, string>) => authFetch('/auth/register', { method: 'POST', body: JSON.stringify(userData) }),
   },
   upload: {
-    sendNotes: (notas: string[]) => authFetch('/upload', { method: 'POST', body: JSON.stringify({ notas }) }),
+    sendNotes: (notas: string[]) => authFetch('/upload', { method: 'POST', body: JSON.stringify({ notas, model: localStorage.getItem('sanaflow_model') || 'llama-3.1-8b-instant' }) }),
   },
   results: {
     get: (limit: number = 10, lastKey?: string) => {

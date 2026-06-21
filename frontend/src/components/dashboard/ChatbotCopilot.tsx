@@ -5,7 +5,7 @@ const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 
 export default function ChatbotCopilot() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<{role: string, content: string}[]>([
+  const [messages, setMessages] = useState<{ role: string, content: string }[]>([
     { role: 'assistant', content: 'Hola Doctor, soy el Copiloto de SanaFlow. ¿En qué le puedo asistir con los casos de triaje de hoy?' }
   ]);
   const [input, setInput] = useState('');
@@ -18,7 +18,7 @@ export default function ChatbotCopilot() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    
+
     const userMsg = { role: 'user', content: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -57,7 +57,7 @@ export default function ChatbotCopilot() {
   return (
     <>
       {/* Botón flotante */}
-      <button 
+      <button
         onClick={() => setOpen(true)}
         className={`fixed bottom-6 right-6 w-14 h-14 rounded-full bg-amber-400 text-black flex items-center justify-center transition-transform hover:scale-110 shadow-xl ${open ? 'scale-0' : 'scale-100'}`}
         style={{ zIndex: 50 }}
@@ -66,7 +66,7 @@ export default function ChatbotCopilot() {
       </button>
 
       {/* Ventana de chat */}
-      <div 
+      <div
         className={`fixed bottom-6 right-6 w-[350px] h-[500px] bg-[#0a0a0a] border border-white/10 flex flex-col transition-all duration-300 shadow-2xl ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
         style={{ zIndex: 50 }}
       >
@@ -104,15 +104,15 @@ export default function ChatbotCopilot() {
 
         {/* Input */}
         <div className="p-3 border-t border-white/10 flex gap-2 bg-[#050505]">
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder="Pregunta sobre triage..."
             className="flex-1 bg-transparent border border-white/10 px-3 py-2 text-sm text-white placeholder-white/20 outline-none focus:border-amber-400/50 transition-colors"
           />
-          <button 
+          <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
             className="w-10 flex items-center justify-center bg-amber-400 text-black hover:bg-amber-300 disabled:opacity-50 transition-colors cursor-pointer"

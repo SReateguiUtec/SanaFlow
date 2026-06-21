@@ -151,8 +151,8 @@ const ArchitectureSection = () => {
           <p className="font-mono-custom text-[10px] text-white/25 uppercase tracking-[0.2em]">
             Cada paso es independiente y escalable horizontalmente
           </p>
-          <div className="flex items-center gap-6">
-            {['S3', 'EventBridge', 'SQS', 'Lambda', 'Groq'].map((service) => (
+          <div className="flex flex-wrap items-center gap-6">
+            {['S3', 'EventBridge', 'SQS', 'Lambda', 'Groq', 'WebSockets'].map((service) => (
               <span key={service} className="font-mono-custom text-[9px] text-white/20 uppercase tracking-widest">{service}</span>
             ))}
           </div>

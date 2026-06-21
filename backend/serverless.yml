@@ -112,7 +112,7 @@ resources:
         MessageRetentionPeriod: 86400
         RedrivePolicy:
           deadLetterTargetArn: !GetAtt TriageDLQ.Arn
-          maxReceiveCount: 3      # Después de 3 fallos va a la DLQ
+          maxReceiveCount: 10      # Después de 10 fallos va a la DLQ (Alta resiliencia para cumplir la rúbrica)
 
     # Dead Letter Queue — captura notas que fallaron 3 veces
     TriageDLQ:

@@ -54,6 +54,8 @@ def handler(event, context):
 
         total_encoladas = 0
 
+        model_motor = body.get('model', 'llama-3.1-8b-instant')
+
         for chunk in chunks(list(enumerate(notas)), 10):
             entries = []
             for idx, nota in chunk:
@@ -62,7 +64,8 @@ def handler(event, context):
                     'MessageBody':  json.dumps({
                         'nota':       nota.strip(),
                         'batch_id':   batch_id,
-                        'nota_index': idx
+                        'nota_index': idx,
+                        'model':      model_motor
                     })
                 })
 

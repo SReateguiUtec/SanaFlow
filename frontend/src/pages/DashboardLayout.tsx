@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import ChatbotCopilot from '../components/dashboard/ChatbotCopilot';
 import { api, getUser, removeToken, removeUser } from '../lib/api';
 import { wsService } from '../lib/wsService';
-const mono  = "'IBM Plex Mono', monospace";
+const mono = "'IBM Plex Mono', monospace";
 const serif = "'DM Serif Display', Georgia, serif";
 
 const navItems = [
@@ -13,8 +13,8 @@ const navItems = [
     sub: 'Vista general',
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
       </svg>
     ),
   },
@@ -24,7 +24,7 @@ const navItems = [
     sub: 'Subir CSV',
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
       </svg>
     ),
   },
@@ -34,9 +34,9 @@ const navItems = [
     sub: 'Triajes procesados',
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
       </svg>
     ),
   },
@@ -46,8 +46,8 @@ const navItems = [
     sub: 'Estadísticas',
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-        <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+        <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="14" /><line x1="2" y1="20" x2="22" y2="20" />
       </svg>
     ),
   },
@@ -68,14 +68,14 @@ const SidebarSparkline = () => {
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
       <defs>
         <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D4A85A" stopOpacity="0.3"/>
-          <stop offset="100%" stopColor="#D4A85A" stopOpacity="0"/>
+          <stop offset="0%" stopColor="#D4A85A" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#D4A85A" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <polygon points={`${pad},${h} ${pts} ${w - pad},${h}`} fill="url(#sg)"/>
-      <polyline points={pts} fill="none" stroke="#D4A85A" strokeWidth="1.2" strokeOpacity="0.7" strokeLinejoin="round" strokeLinecap="round"/>
+      <polygon points={`${pad},${h} ${pts} ${w - pad},${h}`} fill="url(#sg)" />
+      <polyline points={pts} fill="none" stroke="#D4A85A" strokeWidth="1.2" strokeOpacity="0.7" strokeLinejoin="round" strokeLinecap="round" />
       {/* Last point dot */}
-      <circle cx={w - pad} cy={h - pad - ((sparkValues[sparkValues.length-1] / sparkMax) * (h - pad * 2))} r="2" fill="#D4A85A"/>
+      <circle cx={w - pad} cy={h - pad - ((sparkValues[sparkValues.length - 1] / sparkMax) * (h - pad * 2))} r="2" fill="#D4A85A" />
     </svg>
   );
 };
@@ -99,8 +99,8 @@ interface TriageResult {
 }
 
 const DashboardLayout = () => {
-  const location  = useLocation();
-  const navigate  = useNavigate();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,7 +119,7 @@ const DashboardLayout = () => {
       return allResults.slice(0, 5);
     }
     const q = searchQuery.toLowerCase();
-    const filtered = allResults.filter(r => 
+    const filtered = allResults.filter(r =>
       (r.nivel_urgencia || '').toLowerCase().includes(q) ||
       (r.id || '').toLowerCase().includes(q)
     );
@@ -184,11 +184,10 @@ const DashboardLayout = () => {
             const active = location.pathname === item.path;
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-200 group border-l-2 ${
-                  active
+                className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-200 group border-l-2 ${active
                     ? 'bg-amber-400/8 border-amber-400'
                     : 'border-transparent text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
-                }`}>
+                  }`}>
                 <span className={`flex-shrink-0 ${active ? 'text-amber-400' : 'text-white/22 group-hover:text-white/45'}`}>{item.icon}</span>
                 <div className="min-w-0">
                   <p className={`text-sm font-medium leading-none mb-0.5 ${active ? 'text-amber-400' : ''}`}>{item.label}</p>
@@ -226,10 +225,10 @@ const DashboardLayout = () => {
           <span style={{ fontFamily: mono }} className="text-[7px] uppercase tracking-[0.3em] text-white/15 block mb-3">Cola SQS</span>
           <div className="space-y-2">
             {[
-              { label: 'En cola',     val: 0,   color: 'text-white/35',    dot: 'bg-white/20'     },
-              { label: 'Procesando',  val: 0,   color: 'text-amber-400/50',dot: 'bg-amber-400/50' },
+              { label: 'En cola', val: 0, color: 'text-white/35', dot: 'bg-white/20' },
+              { label: 'Procesando', val: 0, color: 'text-amber-400/50', dot: 'bg-amber-400/50' },
               { label: 'Completados', val: totalCompleted, color: 'text-emerald-400/60', dot: 'bg-emerald-400' },
-              { label: 'Fallidos',    val: 0,   color: 'text-white/25',    dot: 'bg-white/10'     },
+              { label: 'Fallidos', val: 0, color: 'text-white/25', dot: 'bg-white/10' },
             ].map(({ label, val, color, dot }) => (
               <div key={label} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -255,11 +254,11 @@ const DashboardLayout = () => {
           <span style={{ fontFamily: mono }} className="text-[7px] uppercase tracking-[0.3em] text-white/15 block mb-3">Pipeline</span>
           <div className="space-y-2">
             {[
-              { name: 'S3',          ms: '12ms'  },
-              { name: 'EventBridge', ms: '4ms'   },
-              { name: 'SQS',         ms: '8ms'   },
-              { name: 'Lambda',      ms: '520ms' },
-              { name: 'Groq API',    ms: '380ms' },
+              { name: 'S3', ms: '12ms' },
+              { name: 'EventBridge', ms: '4ms' },
+              { name: 'SQS', ms: '8ms' },
+              { name: 'Lambda', ms: '520ms' },
+              { name: 'Groq API', ms: '380ms' },
             ].map(({ name, ms }) => (
               <div key={name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -286,12 +285,26 @@ const DashboardLayout = () => {
             </span>
           </div>
 
-          {/* Model badge */}
-          <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
-            <span style={{ fontFamily: mono }} className="text-[7px] uppercase tracking-[0.3em] text-white/15">Modelo IA</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-amber-400/60" />
-              <span style={{ fontFamily: mono }} className="text-[8px] text-amber-400/50">Llama 3 · Groq</span>
+          {/* Model badge / Selector */}
+          <div className="px-5 py-3 border-b border-white/5 flex flex-col gap-2">
+            <span style={{ fontFamily: mono }} className="text-[7px] uppercase tracking-[0.3em] text-white/15">Modelo IA / Motor</span>
+            <div className="flex items-center gap-1.5 w-full bg-white/[0.02] border border-white/5 px-2 py-1.5 hover:bg-white/[0.04] transition-colors relative">
+              <div className="w-1 h-1 rounded-full bg-amber-400/60 shrink-0" />
+              <select
+                className="bg-transparent border-none text-[8px] text-amber-400/50 focus:outline-none w-full cursor-pointer appearance-none"
+                style={{ fontFamily: mono }}
+                defaultValue={localStorage.getItem('sanaflow_model') || "llama-3.1-8b-instant"}
+                onChange={(e) => localStorage.setItem('sanaflow_model', e.target.value)}
+              >
+                <option value="llama-3.1-8b-instant" className="bg-[#070606] text-white/60">Llama 3.1 8B (6K TPM) - Rápido</option>
+                <option value="llama-3.3-70b-versatile" className="bg-[#070606] text-white/60">Llama 3.3 70B (12K TPM) - Precisión</option>
+                <option value="meta-llama/llama-4-scout-17b-16e-instruct" className="bg-[#070606] text-white/60">Llama 4 Scout 17B (30K TPM) - Lotes Grandes</option>
+                <option value="openai/gpt-oss-120b" className="bg-[#070606] text-white/60">GPT-OSS 120B (8K TPM) - Razonamiento</option>
+                <option value="qwen/qwen3-32b" className="bg-[#070606] text-white/60">Qwen 3 32B (6K TPM) - Balanceado</option>
+              </select>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
             </div>
           </div>
 
@@ -306,15 +319,15 @@ const DashboardLayout = () => {
               <p className="text-xs font-medium text-white/60 truncate">{getUser()?.name || 'Usuario Activo'}</p>
               <p style={{ fontFamily: mono }} className="text-[7px] text-white/22 uppercase tracking-[0.15em]">Personal Clínico</p>
             </div>
-            <button 
-              onClick={() => { removeToken(); removeUser(); navigate('/'); }} 
-              className="text-white/18 hover:text-red-400/60 transition-colors" 
+            <button
+              onClick={() => { removeToken(); removeUser(); navigate('/'); }}
+              className="text-white/18 hover:text-red-400/60 transition-colors"
               title="Cerrar sesión"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
             </button>
           </div>
@@ -345,13 +358,13 @@ const DashboardLayout = () => {
           </div>
 
           {/* Universal Search Bar */}
-          <div 
+          <div
             className="hidden md:flex items-center flex-1 max-w-md mx-8 relative group cursor-text"
             onClick={() => setSearchOpen(true)}
           >
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/20 group-hover:text-amber-400/50 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </div>
             <div className="w-full bg-white/[0.03] group-hover:bg-white/[0.05] border border-white/10 group-hover:border-amber-400/30 text-white/40 text-xs px-9 py-2 rounded-sm transition-all duration-300">
@@ -378,9 +391,9 @@ const DashboardLayout = () => {
               {/* Input */}
               <div className="flex items-center px-4 py-3 border-b border-white/10">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400/70 mr-3">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                <input 
+                <input
                   autoFocus
                   type="text"
                   placeholder="Ej: TRJ-042, Alta, Media..."
@@ -390,7 +403,7 @@ const DashboardLayout = () => {
                 />
                 <button onClick={() => setSearchOpen(false)} style={{ fontFamily: mono }} className="text-[10px] bg-white/10 text-white/40 px-2 py-1 rounded-sm ml-3 hover:bg-white/20 transition-colors">ESC</button>
               </div>
-              
+
               {/* Results */}
               <div className="p-2 max-h-[60vh] overflow-y-auto">
                 <div className="px-3 py-2">
@@ -403,9 +416,9 @@ const DashboardLayout = () => {
                   <div className="p-4 text-center text-white/40 text-xs">No se encontraron resultados</div>
                 ) : (
                   searchResults.map(res => (
-                    <div 
-                      key={res.id} 
-                      onClick={() => { setSearchOpen(false); navigate('/dashboard/history', { state: { selectedId: res.id } }); }} 
+                    <div
+                      key={res.id}
+                      onClick={() => { setSearchOpen(false); navigate('/dashboard/history', { state: { selectedId: res.id } }); }}
                       className="flex items-center gap-3 px-3 py-3 rounded-sm hover:bg-white/[0.03] cursor-pointer group transition-colors"
                     >
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${res.nivel_urgencia === 'Alta' ? 'bg-red-400/10' : res.nivel_urgencia === 'Media' ? 'bg-amber-400/10' : 'bg-emerald-400/10'}`}>

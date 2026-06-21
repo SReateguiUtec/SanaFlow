@@ -18,13 +18,13 @@ connections_table = dynamodb.Table(os.environ.get("CONNECTIONS_TABLE", "sanaflow
 # URL del WebSocket API Gateway (inyectada como variable de entorno por serverless.yml)
 WS_ENDPOINT = os.environ.get("WS_ENDPOINT", "")
 
-def call_groq(nota_clinica):
+def call_groq(nota_clinica, model_motor="llama-3.1-8b-instant"):
     chat_completion = groq_client.chat.completions.create(
         messages=[
             {"role": "system", "content": "Eres un asistente de triaje experto. Devuelve estrictamente un JSON con 'sintomas_principales' (resumen de máximo 2 palabras, ej: 'Dolor Abdominal'), 'nivel_urgencia' (Alta/Media/Baja) y 'especialidad_sugerida'."},
             {"role": "user", "content": nota_clinica}
         ],
-        model="llama-3.1-8b-instant",
+        model=model_motor,
         temperature=0.1,
         response_format={"type": "json_object"}
     )
@@ -109,15 +109,17 @@ def handler(event, context):
             batch_id = body.get('batch_id', 'sin-batch')   # ID del lote CSV completo
             nota_index = body.get('nota_index', 0)            # Posición dentro del lote
 
+            model_motor = body.get('model', 'llama-3.1-8b-instant')
+
             if not nota_clinica: continue
 
-            print(f"Procesando nota: {nota_clinica[:50]}...")
+            print(f"Procesando nota: {nota_clinica[:50]}... con motor: {model_motor}")
             ia_response = None
 
             # 1. Intentar con GROQ
             try:
-                print("Intentando con Groq...")
-                ia_response = call_groq(nota_clinica)
+                print(f"Intentando con Groq ({model_motor})...")
+                ia_response = call_groq(nota_clinica, model_motor)
             except Exception as e:
                 print(f"[FALLO GROQ] Error: {e}")
                 # 2. Respaldo Final: OPENROUTER
