@@ -2,10 +2,11 @@
 
 import { useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float, MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import Navbar from './Navbar';
+import DashboardLayout from '../pages/DashboardLayout';
+import Loader from './box-loader';
 
 const LiquidBackground = () => {
     const meshRef = useRef<THREE.Mesh>(null);
@@ -49,24 +50,7 @@ const LiquidBackground = () => {
     );
 };
 
-const Monolith = () => {
-    const meshRef = useRef<THREE.Mesh>(null);
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    
-    useFrame((state) => {
-        if (meshRef.current) {
-            meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.25;
-        }
-    });
-    return (
-        <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
-            <mesh ref={meshRef} scale={isMobile ? 0.6 : 1} position={isMobile ? [0, 4, 0] : [0, 0, 0]}>
-                <icosahedronGeometry args={[13, 1]} />
-                <MeshDistortMaterial color="#0a0a0a" speed={4} distort={0.4} roughness={0.05} metalness={1.0} />
-            </mesh>
-        </Float>
-    );
-};
+
 
 export const Component = () => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -112,8 +96,38 @@ export const Component = () => {
                     <ambientLight intensity={0.4} />
                     <spotLight position={[50, 50, 50]} intensity={3} />
                     <LiquidBackground />
-                    <Monolith />
                 </Canvas>
+            </div>
+
+            {/* 3D-like Dashboard Mockup Background */}
+            <div className="absolute top-[5%] right-[-25%] lg:right-[-10%] w-[1200px] h-[900px] pointer-events-none z-0 hidden md:block hero-mockup-wrapper"
+                style={{
+                    transform: 'perspective(1200px) rotateY(-20deg) rotateX(5deg) scale(0.68)',
+                    WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 80%)',
+                    maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 80%)'
+                }}>
+                <style>{`
+                    .hero-mockup-wrapper aside > div:last-child > div:last-child {
+                        visibility: hidden !important;
+                    }
+                `}</style>
+                <div className="w-full h-full rounded-2xl overflow-hidden border border-white/15 shadow-[0_0_150px_rgba(212,168,90,0.12)] bg-[#040403] relative">
+                    <div className="w-full h-full pointer-events-none relative" style={{ filter: 'brightness(0.6)' }}>
+                        <DashboardLayout />
+                        {/* Dark overlay on right side */}
+                        <div className="absolute top-0 left-56 right-0 bottom-0 bg-[#040403] opacity-60" />
+                    </div>
+                    {/* Fake User Overlay */}
+                    <div className="absolute bottom-0 left-0 w-56 h-[68px] bg-[#060504] border-t border-white/6 z-10 flex items-center gap-3 px-5 pointer-events-none" style={{ filter: 'brightness(0.6)' }}>
+                        <div className="w-7 h-7 bg-amber-400/12 border border-amber-400/18 flex items-center justify-center shrink-0">
+                            <span className="text-[8px] text-amber-400 font-mono">US</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-white/60 truncate" style={{ fontFamily: "'DM Sans', sans-serif" }}>User</p>
+                            <p className="text-[7px] text-white/22 uppercase tracking-[0.15em]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>Personal Clínico</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Navbar */}
@@ -122,8 +136,8 @@ export const Component = () => {
             {/* Hero Content */}
             <div ref={revealRef} className="relative z-10 w-full flex flex-col md:flex-row px-6 md:px-14 lg:px-20 pt-20 md:pt-28 pb-10 md:pb-16 min-h-screen items-center md:items-stretch gap-6 md:gap-10">
 
-                {/* Left: Main Copy */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center md:justify-between pb-4 md:pb-8 w-full">
+                {/* Left: Title + Loader + CTA */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center md:justify-between pb-4 md:pb-8">
 
                     {/* Status Badge */}
                     <div className="hero-label flex items-center gap-3 mt-2 md:mt-2 mb-4 md:mb-6">
@@ -133,14 +147,20 @@ export const Component = () => {
                         </div>
                     </div>
 
+                    {/* Loader — above the title (Fixed padding) */}
+                    {/* El scale reduce lo visual, pero el contenedor original seguía midiendo 320px. Usamos margen negativo para matar ese espacio vacío. */}
+                    <div className="hidden md:flex justify-center md:justify-start -mt-20 -mb-24 md:-mt-28 md:-mb-28 relative z-0 pointer-events-none">
+                        <Loader />
+                    </div>
+
                     {/* Headline */}
-                    <div className="max-w-4xl pr-8">
+                    <div className="max-w-xl pr-8 relative z-10">
                         <h1 className="font-serif text-[clamp(3.2rem,9vw,10.5rem)] leading-[0.88] tracking-tight text-white">
                             SANA<br />
                             <span className="text-outline italic">FLOW</span>
                         </h1>
                         <div className="mt-6 flex items-start gap-6">
-                            <div className="w-10 h-px bg-amber-400/40 mt-3 flex-shrink-0" />
+                            <div className="w-10 h-px bg-amber-400/40 mt-3 shrink-0" />
                             <p className="font-mono-custom text-[11px] text-white/35 uppercase tracking-[0.3em] leading-relaxed max-w-xs">
                                 Priorización clínica potenciada por Inteligencia Artificial y Arquitecturas Serverless.
                             </p>
@@ -151,7 +171,7 @@ export const Component = () => {
                     <button
                         ref={ctaRef}
                         onClick={() => document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' })}
-                        className="w-fit flex items-center gap-5 group lg:-translate-y-16"
+                        className="w-fit flex items-center gap-5 group mt-8 lg:-translate-y-8"
                     >
                         <div className="w-12 h-12 border border-white/12 flex items-center justify-center group-hover:border-amber-400/60 group-hover:bg-amber-400/10 transition-all duration-500">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:stroke-amber-400 stroke-white/60 transition-colors duration-500">
@@ -165,7 +185,7 @@ export const Component = () => {
                 </div>
 
                 {/* Right: Data Cards */}
-                <div className="w-full md:w-72 lg:w-88 flex-shrink-0 flex flex-col gap-3 justify-center z-20">
+                <div className="w-full md:w-72 lg:w-80 shrink-0 flex flex-col gap-3 justify-center z-20">
                     {[
                         { id: "001", title: "SISTEMA", val: "En Línea", type: "progress" },
                         { id: "002", title: "PROCESAMIENTO", val: "Asíncrono", type: "data" },
@@ -173,7 +193,7 @@ export const Component = () => {
                     ].map((item) => (
                         <div
                             key={item.id}
-                            className="command-cell border border-white/5 bg-white/[0.02] backdrop-blur-md p-5 sm:p-6 hover:bg-white/[0.04] hover:border-white/10 transition-all duration-500"
+                            className="command-cell border border-white/5 bg-white/2 backdrop-blur-md p-5 sm:p-6 hover:bg-white/4 hover:border-white/10 transition-all duration-500"
                             style={{ opacity: 1 }}
                         >
                             <span className="font-mono-custom text-[9px] text-amber-400/30 uppercase tracking-[0.3em] block mb-3">

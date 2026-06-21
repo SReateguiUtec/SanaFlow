@@ -185,8 +185,8 @@ const DashboardLayout = () => {
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-200 group border-l-2 ${active
-                    ? 'bg-amber-400/8 border-amber-400'
-                    : 'border-transparent text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+                  ? 'bg-amber-400/8 border-amber-400'
+                  : 'border-transparent text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
                   }`}>
                 <span className={`flex-shrink-0 ${active ? 'text-amber-400' : 'text-white/22 group-hover:text-white/45'}`}>{item.icon}</span>
                 <div className="min-w-0">
@@ -303,7 +303,7 @@ const DashboardLayout = () => {
                 <option value="qwen/qwen3-32b" className="bg-[#070606] text-white/60">Qwen 3 32B (6K TPM) - Balanceado</option>
               </select>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
           </div>
