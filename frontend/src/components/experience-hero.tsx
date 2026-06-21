@@ -51,6 +51,8 @@ const LiquidBackground = () => {
 
 const Monolith = () => {
     const meshRef = useRef<THREE.Mesh>(null);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    
     useFrame((state) => {
         if (meshRef.current) {
             meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.25;
@@ -58,7 +60,7 @@ const Monolith = () => {
     });
     return (
         <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
-            <mesh ref={meshRef}>
+            <mesh ref={meshRef} scale={isMobile ? 0.6 : 1} position={isMobile ? [0, 4, 0] : [0, 0, 0]}>
                 <icosahedronGeometry args={[13, 1]} />
                 <MeshDistortMaterial color="#0a0a0a" speed={4} distort={0.4} roughness={0.05} metalness={1.0} />
             </mesh>
@@ -79,7 +81,7 @@ export const Component = () => {
             );
 
             gsap.from(".command-cell", {
-                x: 50, opacity: 0, stagger: 0.12, duration: 1.6, ease: "power4.out", delay: 1.2, clearProps: "all"
+                x: 30, opacity: 0, stagger: 0.1, duration: 1.0, ease: "power4.out", delay: 0.4, clearProps: "all"
             });
 
             gsap.from(".hero-label", {
@@ -118,13 +120,13 @@ export const Component = () => {
             <Navbar />
 
             {/* Hero Content */}
-            <div ref={revealRef} className="relative z-10 w-full flex flex-col md:flex-row px-8 md:px-14 lg:px-20 pt-28 pb-16 min-h-screen items-center md:items-stretch gap-10">
+            <div ref={revealRef} className="relative z-10 w-full flex flex-col md:flex-row px-6 md:px-14 lg:px-20 pt-20 md:pt-28 pb-10 md:pb-16 min-h-screen items-center md:items-stretch gap-6 md:gap-10">
 
                 {/* Left: Main Copy */}
-                <div className="flex-1 min-w-0 flex flex-col justify-between pb-12 md:pb-8 w-full">
+                <div className="flex-1 min-w-0 flex flex-col justify-center md:justify-between pb-4 md:pb-8 w-full">
 
                     {/* Status Badge */}
-                    <div className="hero-label flex items-center gap-3 mt-2 mb-6">
+                    <div className="hero-label flex items-center gap-3 mt-2 md:mt-2 mb-4 md:mb-6">
                         <div className="flex items-center gap-2 px-3 py-1.5 border border-amber-400/20 bg-amber-400/5">
                             <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
                             <span className="font-mono-custom text-[10px] font-medium text-amber-400/80 uppercase tracking-[0.25em]">Sistema Activo — IA Clínica</span>
@@ -171,7 +173,7 @@ export const Component = () => {
                     ].map((item) => (
                         <div
                             key={item.id}
-                            className="command-cell border border-white/6 bg-black/40 backdrop-blur-sm p-5 sm:p-6"
+                            className="command-cell border border-white/5 bg-white/[0.02] backdrop-blur-md p-5 sm:p-6 hover:bg-white/[0.04] hover:border-white/10 transition-all duration-500"
                             style={{ opacity: 1 }}
                         >
                             <span className="font-mono-custom text-[9px] text-amber-400/30 uppercase tracking-[0.3em] block mb-3">

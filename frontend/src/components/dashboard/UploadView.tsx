@@ -19,6 +19,47 @@ const UploadView = () => {
   const [done, setDone]               = useState(false);
   const [fileName, setFileName]       = useState('');
   const [error, setError]             = useState('');
+  const [inputMode, setInputMode]     = useState<'file' | 'text'>('file');
+  const [manualText, setManualText]   = useState('');
+
+  const submitText = async () => {
+    if (!manualText.trim()) return;
+    setFileName('Entrada Manual');
+    setIsUploading(true);
+    setDone(false);
+    setPipelineStep(0);
+    setError('');
+
+    try {
+      let notas: string[] = [];
+      try {
+        const data = JSON.parse(manualText);
+        notas = data.notas || data.notes || [];
+      } catch {
+        const lines = manualText.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length > 0 && lines[0].toLowerCase().includes('nota_clinica')) {
+          lines.shift();
+        }
+        notas = lines.map(l => l.replace(/^["']|["']$/g, ''));
+      }
+
+      if (!notas.length) {
+        throw new Error('No se encontraron notas en el texto');
+      }
+
+      setPipelineStep(2);
+      await api.upload.sendNotes(notas);
+
+      setIsUploading(false);
+      setDone(true);
+      setPipelineStep(pipelineStages.length);
+      setManualText('');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al procesar el texto');
+      setIsUploading(false);
+      setPipelineStep(-1);
+    }
+  };
 
   const processFile = async (file: File) => {
     setFileName(file.name);
@@ -96,18 +137,37 @@ const UploadView = () => {
         </p>
       </div>
 
+      {/* Input Mode Toggle */}
+      {!done && (
+        <div className="flex items-center gap-6 border-b border-white/10 pb-4">
+          <button 
+            onClick={() => setInputMode('file')}
+            className={`font-mono text-[10px] tracking-widest uppercase transition-colors ${inputMode === 'file' ? 'text-amber-400' : 'text-white/40 hover:text-white/70'}`}
+          >
+            Subir Archivo
+          </button>
+          <button 
+            onClick={() => setInputMode('text')}
+            className={`font-mono text-[10px] tracking-widest uppercase transition-colors ${inputMode === 'text' ? 'text-amber-400' : 'text-white/40 hover:text-white/70'}`}
+          >
+            Pegar Texto
+          </button>
+        </div>
+      )}
+
       {/* Upload zone */}
       {!done ? (
-        <div
-          className={`relative border-2 border-dashed transition-all duration-400 cursor-pointer ${
-            isDragging ? 'border-amber-400/60 bg-amber-400/4' : isUploading ? 'border-white/10 cursor-default' : 'border-white/10 hover:border-white/22'
-          }`}
-          style={{ minHeight: 240 }}
-          onDragOver={(e) => { e.preventDefault(); if (!isUploading) setIsDragging(true); }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          onClick={handleClick}
-        >
+        inputMode === 'file' ? (
+          <div
+            className={`relative border-2 border-dashed transition-all duration-400 cursor-pointer ${
+              isDragging ? 'border-amber-400/60 bg-amber-400/4' : isUploading ? 'border-white/10 cursor-default' : 'border-white/10 hover:border-white/22'
+            }`}
+            style={{ minHeight: 240 }}
+            onDragOver={(e) => { e.preventDefault(); if (!isUploading) setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={handleClick}
+          >
           {/* Corner accents */}
           {['top-0 left-0', 'top-0 right-0 rotate-90', 'bottom-0 right-0 rotate-180', 'bottom-0 left-0 -rotate-90'].map((pos, i) => (
             <div key={i} className={`absolute ${pos} w-5 h-5 pointer-events-none`}>
@@ -151,6 +211,31 @@ const UploadView = () => {
             )}
           </div>
         </div>
+        ) : (
+          <div className="relative flex flex-col gap-4 border border-white/10 bg-[#070606] p-5">
+            <textarea
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
+              disabled={isUploading}
+              placeholder="Pega aquí tus notas clínicas (una por línea)...&#10;&#10;Ejemplo:&#10;Paciente masculino de 50 años con dolor de cabeza intenso...&#10;Niño de 8 años con fiebre y malestar..."
+              className="w-full h-48 bg-transparent text-white/70 text-sm font-light resize-none focus:outline-none placeholder:text-white/20"
+            />
+            {error && (
+              <p className="text-sm text-red-400 bg-red-400/10 px-3 py-1.5 border border-red-400/20">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end border-t border-white/5 pt-4">
+              <button
+                onClick={submitText}
+                disabled={isUploading || !manualText.trim()}
+                className="px-5 py-2.5 border border-amber-400/30 bg-amber-400/10 text-amber-400 font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isUploading ? 'Procesando...' : 'Procesar Texto'}
+              </button>
+            </div>
+          </div>
+        )
       ) : (
         /* Success state */
         <div className="border border-emerald-400/20 bg-emerald-400/4 p-8 flex flex-col items-center gap-5 text-center">
