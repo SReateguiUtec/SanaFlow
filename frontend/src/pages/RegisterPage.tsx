@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { api, setToken } from '../lib/api';
+import { api } from '../lib/api';
 
 const roles = [
   { id: 'medico', label: 'Médico', desc: 'Acceso a resultados de triaje y panel clínico' },
