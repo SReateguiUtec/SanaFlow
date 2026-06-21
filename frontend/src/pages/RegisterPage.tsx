@@ -35,11 +35,8 @@ const RegisterPage = () => {
     setError('');
     setLoading(true);
     try {
-      const data = await api.auth.register(form);
-      if (data.token) {
-        setToken(data.token);
-        navigate('/dashboard');
-      }
+      await api.auth.register(form);
+      navigate('/login');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al registrar cuenta');
     } finally {
