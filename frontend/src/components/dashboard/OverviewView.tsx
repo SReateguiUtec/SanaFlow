@@ -1,32 +1,35 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { wsService } from '../../lib/wsService';
 
-const mono  = { fontFamily: "'IBM Plex Mono', monospace" };
+const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 const serif = { fontFamily: "'DM Serif Display', Georgia, serif" };
 
 /* ── Static configuration ────────────────────────────── */
 const heatHours = ['00–03', '03–06', '06–09', '09–12', '12–15', '15–18', '18–21', '21–24'];
-const heatDays  = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+const heatDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 const pipelineServices = [
-  { name: 'AWS S3',       ok: true,  latency: '12ms'  },
-  { name: 'EventBridge',  ok: true,  latency: '4ms'   },
-  { name: 'SQS',          ok: true,  latency: '8ms'   },
-  { name: 'Lambda',       ok: true,  latency: '520ms' },
-  { name: 'Groq API',     ok: true,  latency: '380ms' },
+  { name: 'AWS S3', ok: true, latency: '12ms' },
+  { name: 'EventBridge', ok: true, latency: '4ms' },
+  { name: 'SQS', ok: true, latency: '8ms' },
+  { name: 'Lambda', ok: true, latency: '520ms' },
+  { name: 'Groq API', ok: true, latency: '380ms' },
 ];
 
-const urgencyDot:  Record<string,string> = { Alta: 'bg-red-400',     Media: 'bg-amber-400',   Baja: 'bg-emerald-400' };
-const urgencyText: Record<string,string> = { Alta: 'text-red-400',   Media: 'text-amber-400', Baja: 'text-emerald-400' };
+const urgencyDot: Record<string, string> = { Alta: 'bg-red-400', Media: 'bg-amber-400', Baja: 'bg-emerald-400' };
+const urgencyText: Record<string, string> = { Alta: 'text-red-400', Media: 'text-amber-400', Baja: 'text-emerald-400' };
 
 /* ── Counter hook ─────────────────────────────────── */
 const useCounter = (target: number, duration = 1000, active = false) => {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!active) return;
-    if (target === 0) { setVal(0); return; }
+    if (target === 0) {
+      setTimeout(() => setVal(0), 0);
+      return;
+    }
     let v = 0; const step = target / (duration / 16);
     const t = setInterval(() => { v += step; if (v >= target) { setVal(target); clearInterval(t); } else setVal(Math.floor(v)); }, 16);
     return () => clearInterval(t);
@@ -66,6 +69,15 @@ const HeatCell = ({ value, max, active }: { value: number; max: number; active: 
   );
 };
 
+interface TriajeResult {
+  id?: string;
+  procesado_en?: number;
+  nivel_urgencia?: string;
+  especialidad_sugerida?: string;
+  sintomas_principales?: string;
+  nota_original?: string;
+}
+
 /* ── Main ─────────────────────────────────────────── */
 const OverviewView = () => {
   const navigate = useNavigate();
@@ -73,7 +85,7 @@ const OverviewView = () => {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<TriajeResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
 
   // Intersection Observer
@@ -101,9 +113,9 @@ const OverviewView = () => {
 
     wsService.connect();
     const unsubscribe = wsService.onMessage((rawMsg: unknown) => {
-      const msg = rawMsg as { tipo?: string, data?: any };
+      const msg = rawMsg as { tipo?: string, data?: TriajeResult };
       if (msg.tipo === 'RESULTADO_TRIAJE' && msg.data) {
-        setResults(prev => [msg.data, ...prev]);
+        setResults(prev => [msg.data!, ...prev]);
         setTotalCount(prev => prev + 1);
       }
     });
@@ -118,7 +130,7 @@ const OverviewView = () => {
   // Compute live statistics
   const { barData, maxTotal, recentActivity, specialtyBreakdown, heatData, heatMax, criticalAlerts, totalAlta } = useMemo(() => {
     let tAlta = 0;
-    
+
     // Bar data
     const dayMap: Record<string, { alta: number, media: number, baja: number }> = {};
     const hData = Array.from({ length: 7 }, () => Array(8).fill(0));
@@ -127,11 +139,11 @@ const OverviewView = () => {
 
     results.forEach(r => {
       const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
-      
+
       // Bar data logic
       const label = ts.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' });
       if (!dayMap[label]) dayMap[label] = { alta: 0, media: 0, baja: 0 };
-      
+
       const uRaw = (r.nivel_urgencia || 'baja');
       const u = uRaw.toLowerCase();
       if (u === 'alta') { dayMap[label].alta++; tAlta++; }
@@ -171,7 +183,7 @@ const OverviewView = () => {
       // Deterministic confidence based on ID or index
       const confVal = 90 + ((i * 7) % 10);
       return {
-        id: r.id || `TRJ-${String(i).padStart(3,'0')}`,
+        id: r.id || `TRJ-${String(i).padStart(3, '0')}`,
         specialty: (r.especialidad_sugerida as string) || 'Medicina General',
         urgency: (['Alta', 'Media', 'Baja'].includes(urgencyRaw) ? urgencyRaw : 'Baja') as 'Alta' | 'Media' | 'Baja',
         time: timeStr,
@@ -182,7 +194,7 @@ const OverviewView = () => {
     // Specialty logic
     const maxSpec = Math.max(...Object.values(specMap), 1);
     const sBreakdown = Object.entries(specMap)
-      .sort((a,b) => b[1] - a[1])
+      .sort((a, b) => b[1] - a[1])
       .slice(0, 6)
       .map(([name, count]) => ({ name, count, pct: Math.round((count / maxSpec) * 100) }));
 
@@ -194,7 +206,7 @@ const OverviewView = () => {
         const ts = r.procesado_en ? new Date(r.procesado_en * 1000) : new Date();
         return {
           id: r.id || `TRJ-ALT-${i}`,
-          msg: r.sintomas_principales || r.nota_original?.slice(0,60) || 'Urgencia crítica reportada',
+          msg: r.sintomas_principales || r.nota_original?.slice(0, 60) || 'Urgencia crítica reportada',
           time: ts.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false }),
           type: 'alta'
         };
@@ -217,7 +229,7 @@ const OverviewView = () => {
           className="hidden sm:flex items-center gap-2 px-4 py-2.5 border border-amber-400/30 bg-amber-400/6 text-amber-400 hover:bg-amber-400/12 transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
           </svg>
           <span style={mono} className="text-[10px] uppercase tracking-[0.2em]">Cargar Lote</span>
         </button>
@@ -225,10 +237,10 @@ const OverviewView = () => {
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Total Procesado"   value={totalCount} sub="Notas clínicas"              topColor="bg-white/10"        delay={0}   active={active} />
-        <KpiCard label="Urgencias Altas"   value={totalAlta}      sub="Requieren atención inmediata" topColor="bg-red-400/50"      delay={80}  active={active} />
-        <KpiCard label="Precisión IA"      value={98} suffix="%"  sub="Promedio Llama 3 · Groq"      topColor="bg-amber-400/50"   delay={160} active={active} />
-        <KpiCard label="Tiempo / registro" value={4}  suffix="s"  sub="Décimas de segundo"           topColor="bg-emerald-400/40" delay={240} active={active} />
+        <KpiCard label="Total Procesado" value={totalCount} sub="Notas clínicas" topColor="bg-white/10" delay={0} active={active} />
+        <KpiCard label="Urgencias Altas" value={totalAlta} sub="Requieren atención inmediata" topColor="bg-red-400/50" delay={80} active={active} />
+        <KpiCard label="Precisión IA" value={98} suffix="%" sub="Promedio Llama 3 · Groq" topColor="bg-amber-400/50" delay={160} active={active} />
+        <KpiCard label="Tiempo / registro" value={4} suffix="s" sub="Décimas de segundo" topColor="bg-emerald-400/40" delay={240} active={active} />
       </div>
 
       {/* ── Chart + Activity ── */}
@@ -236,13 +248,13 @@ const OverviewView = () => {
 
         {/* Stacked bar chart */}
         <div className="lg:col-span-2 border border-white/6 bg-[#070606] p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-5 flex-shrink-0">
+          <div className="flex items-center justify-between mb-5 shrink-0">
             <div>
               <p style={mono} className="text-[8px] uppercase tracking-[0.3em] text-white/22 mb-0.5">Actividad Semanal</p>
               <p style={serif} className="text-lg text-white">Registros por urgencia</p>
             </div>
             <div className="flex items-center gap-4">
-              {[['Alta','bg-red-400'],['Media','bg-amber-400'],['Baja','bg-emerald-400']].map(([l,c]) => (
+              {[['Alta', 'bg-red-400'], ['Media', 'bg-amber-400'], ['Baja', 'bg-emerald-400']].map(([l, c]) => (
                 <div key={l} className="flex items-center gap-1.5">
                   <div className={`w-2 h-2 ${c}`} />
                   <span style={mono} className="text-[8px] uppercase tracking-[0.15em] text-white/25">{l}</span>
@@ -267,11 +279,11 @@ const OverviewView = () => {
                   )}
                   <div className="w-full flex flex-col-reverse gap-px overflow-hidden transition-all duration-700"
                     style={{ height: active ? `${(total / maxTotal) * 100}%` : '0%' }}>
-                    <div className={`w-full transition-colors ${hov ? 'bg-red-400' : 'bg-red-400/70'}`} style={{ height: `${(d.alta/Math.max(total,1))*100}%` }} />
-                    <div className={`w-full transition-colors ${hov ? 'bg-amber-400' : 'bg-amber-400/60'}`} style={{ height: `${(d.media/Math.max(total,1))*100}%` }} />
-                    <div className={`w-full transition-colors ${hov ? 'bg-emerald-400' : 'bg-emerald-400/50'}`} style={{ height: `${(d.baja/Math.max(total,1))*100}%` }} />
+                    <div className={`w-full transition-colors ${hov ? 'bg-red-400' : 'bg-red-400/70'}`} style={{ height: `${(d.alta / Math.max(total, 1)) * 100}%` }} />
+                    <div className={`w-full transition-colors ${hov ? 'bg-amber-400' : 'bg-amber-400/60'}`} style={{ height: `${(d.media / Math.max(total, 1)) * 100}%` }} />
+                    <div className={`w-full transition-colors ${hov ? 'bg-emerald-400' : 'bg-emerald-400/50'}`} style={{ height: `${(d.baja / Math.max(total, 1)) * 100}%` }} />
                   </div>
-                  <span style={mono} className={`text-[7px] uppercase tracking-[0.1em] ${hov ? 'text-white/50' : 'text-white/15'} flex-shrink-0 mt-1`}>
+                  <span style={mono} className={`text-[7px] uppercase tracking-[0.1em] ${hov ? 'text-white/50' : 'text-white/15'} shrink-0 mt-1`}>
                     {d.label.split(' ')[1]}
                   </span>
                 </div>
@@ -340,12 +352,12 @@ const OverviewView = () => {
             ))}
 
             {heatData.map((row, di) => (
-              <>
+              <Fragment key={`row-${di}`}>
                 <span key={`d-${di}`} style={mono} className="text-[7px] text-white/25 flex items-center">{heatDays[di]}</span>
                 {row.map((val, hi) => (
                   <HeatCell key={`${di}-${hi}`} value={val} max={heatMax} active={active} />
                 ))}
-              </>
+              </Fragment>
             ))}
           </div>
 
@@ -372,7 +384,7 @@ const OverviewView = () => {
               <div key={s.name}>
                 <div className="flex items-baseline justify-between mb-1.5">
                   <span style={mono} className="text-[9px] text-white/40 truncate mr-2">{s.name}</span>
-                  <span style={mono} className="text-[10px] text-amber-400/70 flex-shrink-0">{s.count}</span>
+                  <span style={mono} className="text-[10px] text-amber-400/70 shrink-0">{s.count}</span>
                 </div>
                 <div className="h-px w-full bg-white/5 overflow-hidden">
                   <div className="h-full bg-amber-400/50 transition-all duration-1000"
@@ -395,7 +407,7 @@ const OverviewView = () => {
         {/* Alertas críticas */}
         <div className="border border-red-400/12 bg-red-400/[0.03] flex flex-col">
           <div className="px-5 py-4 border-b border-red-400/10 flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
+            <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
             <div>
               <p style={mono} className="text-[8px] uppercase tracking-[0.3em] text-red-400/50 mb-0.5">Alertas Activas</p>
               <p style={serif} className="text-lg text-white">Urgencias críticas</p>
@@ -406,7 +418,7 @@ const OverviewView = () => {
               <div key={alert.id} className="px-5 py-4 hover:bg-red-400/[0.04] transition-colors">
                 <div className="flex items-center justify-between mb-2">
                   <span style={mono} className="text-[9px] text-red-400/70 truncate mr-2">{alert.id}</span>
-                  <span style={mono} className="text-[8px] text-white/18 flex-shrink-0">{alert.time}</span>
+                  <span style={mono} className="text-[8px] text-white/18 shrink-0">{alert.time}</span>
                 </div>
                 <p className="text-xs text-white/45 leading-relaxed truncate">{alert.msg}</p>
               </div>
