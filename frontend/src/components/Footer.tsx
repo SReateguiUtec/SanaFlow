@@ -38,7 +38,7 @@ const Footer = () => {
             © {new Date().getFullYear()} SanaFlow — Hackathon Cloud Computing
           </p>
           <a
-            href="https://github.com"
+            href="https://github.com/SReateguiUtec/SanaFlow"
             target="_blank"
             rel="noopener noreferrer"
             className="text-white/20 hover:text-white/70 transition-colors duration-300 flex-shrink-0"

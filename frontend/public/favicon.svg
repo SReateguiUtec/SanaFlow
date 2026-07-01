@@ -1,10 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- Fondo Oscuro -->
-  <rect width="120" height="120" rx="28" fill="#0A0806" />
-  
-  <!-- Cruz Médica sutil (Sana) -->
-  <path d="M 45 25 h 30 v 20 h 20 v 30 h -20 v 20 h -30 v -20 h -20 v -30 h 20 z" fill="#D4A85A" opacity="0.15" />
-  
-  <!-- Onda de Electrocardiograma (Flow) -->
-  <path d="M 15 60 L 35 60 L 45 35 L 60 90 L 75 45 L 85 60 L 105 60" fill="none" stroke="#D4A85A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="SanaFlow">
+  <defs>
+    <linearGradient id="sf-yellow" x1="18" y1="10" x2="102" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fde68a"/>
+      <stop offset="0.5" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="120" height="120" rx="28" fill="url(#sf-yellow)"/>
+
+  <text
+    x="60"
+    y="72"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="42"
+    font-weight="700"
+    fill="#140f08"
+  >flow</text>
 </svg>
